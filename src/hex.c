@@ -30,13 +30,18 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 
 //--------------------------------------------------------------------------------------------
 
-#define DIGITS 1100
+/*
+ITER = 3 : 170
+ITER = 4 : 2720 ?
+*/
 
-#define CONV 3.321928
+#define DIGITS 2720
 
-#define PREC (DIGITS * CONV)
+#define CONV 6
 
-#define ITER 2
+#define PREC (((DIGITS) + 20) * (CONV)) >> 1
+
+#define ITER 4
 
 //--------------------------------------------------------------------------------------------
 
@@ -47,12 +52,12 @@ mpfr_t sn_p, snx_p, an_p;
 
 int main(void)
 {
-	int print_prec = 1100;
-	if (print_prec != DIGITS)
-	{
-		fprintf(stderr, "need to change value into mpfr_fprintf, line: 81");
-		exit(EXIT_FAILURE); // exit(1)
-	}
+	// int print_prec = 1000;
+	// if (print_prec != DIGITS)
+	// {
+	// 	fprintf(stderr, "need to change value into mpfr_fprintf, line: 81");
+	// 	exit(EXIT_FAILURE); // exit(1)
+	// }
 
 	mpfr_inits2(PREC, sn, snx, an, (mpfr_ptr)0);
 	mpfr_inits2(PREC, sn_p, snx_p, an_p, (mpfr_ptr)0);
@@ -84,9 +89,9 @@ int main(void)
 		mpfr_sn(i + 1, PREC, 0);
 	}
 
-	printf("an: ");
-	mpfr_out_str(stdout, 10, 0, an, 0);
-	mpfr_printf("\nan: %.1000Rf\n", an);
+	printf("\n\n[INFO] main:\n");
+
+	mpfr_printf("an: %.1000Rf\n", an);
 
 	mpfr_ui_div(pi, 1, an, 0);
 
@@ -94,13 +99,21 @@ int main(void)
 
 	FILE *out = fopen("pi-out.txt", "w");
 
-	mpfr_fprintf(out, "%.1100Rf\n", pi);
+	if (out == NULL)
+	{
+		fprintf(stderr, "could not open output file: %i", errno);
+		exit(EXIT_FAILURE);
+	}
+
+	mpfr_fprintf(out, "%.*RNf\n", DIGITS, pi);
 
 	fclose(out);
 
 	mpfr_printf("PI = %.1100Rf\n", pi);
 
-	mpfr_printf("test: sn: %.1100Rf\n snx: %.1100Rf\n an: %.1100Rf\n", sn, snx, an, sn_p, snx_p, an_p);
+	// mpfr_printf("test: sn: %.1100Rf \nsnx: %.1100Rf \nan: %.1100Rf\n", sn, snx, an, sn_p, snx_p, an_p);
+
+	printf("[INFO] End\n");
 
 	mpfr_clear(pi);
 	mpfr_clears(sn, snx, an, (mpfr_ptr)NULL);
@@ -123,10 +136,12 @@ void mpfr_ui_div_ui(mpfr_t rop, unsigned int op1, unsigned int op2, mpfr_rnd_t r
 
 void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
+	printf("\n[INFO] SN\n");
+
 	assert(n <= ITER);
 	assert(n >= 1);
 
-	printf("(sn) n: %i\n", n);
+	printf("n: %i\n", n);
 
 	if (n < 1)
 	{
@@ -140,21 +155,21 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 
 	mpfr_t u;
 	mpfr_init2(u, prec);
-	mpfr_sqr(u, snx_p, round);
+	mpfr_sqr(u, snx, round);
 	mpfr_add_ui(u, u, 1, round);
-	mpfr_mul(u, u, snx_p, round);
+	mpfr_mul(u, u, snx, round);
 	mpfr_mul_ui(u, u, 8, round);
 	mpfr_qtrt(u, u, round);
 
 	mpfr_t t;
 	mpfr_init2(t, prec);
-	mpfr_add_ui(t, snx_p, 1, round);
+	mpfr_add_ui(t, snx, 1, round);
 
 	// mpfr_printf("snx_p: %.60Rf\nu: %.60Rf\n", snx_p, u);
 
 	//--------------
 
-	mpfr_ui_sub(sn, 1, snx_p, round);
+	mpfr_ui_sub(sn, 1, snx, round);
 	mpfr_pow_ui(sn, sn, 4, round);
 
 	mpfr_t mul, tmp;
@@ -175,26 +190,35 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	//--------------
 	mpfr_clear(u);
 	mpfr_clear(t);
+
+	mpfr_printf("s%i:  %.60Rf\n", n, sn);
+
+	printf("[INFO] End SN\n");
 }
 
 void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
+	printf("\n[INFO] SNX\n");
+
 	assert(n <= ITER);
 	assert(n >= -20);
 
 	mpfr_swap(snx, snx_p);
 
-	printf("(snx) n: %i\n", n);
+	printf("n: %i\n", n);
 	// mpfr_sn(snx, n, prec, round);
-	mpfr_pow_ui(snx, snx, 4, round);
+	mpfr_pow_ui(snx, sn, 4, round);
 	mpfr_ui_sub(snx, 1, snx, round);
 	mpfr_qtrt(snx, snx, round);
+	mpfr_printf("s%ix: %.60Rf\n", n, snx);
+	printf("[INFO] End SNX\n");
 }
 
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
+	printf("\n[INFO] AN\n");
 	assert(n <= ITER);
-	printf("(an) n: %i\n", n);
+	printf("n: %i\n", n);
 
 	if (n <= 0)
 	{
@@ -202,24 +226,22 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 		exit(EXIT_FAILURE); // exit(1)
 	}
 
-	printf("ok\n");
-
 	mpfr_swap(an, an_p);
 
 	mpfr_t t, m1, m2;
 	mpfr_inits2(prec, t, m1, m2, (mpfr_ptr)0);
 
-	// mpfr_snx(t, n - 1, prec, round);
-	mpfr_add_ui(t, snx_p, 1, round);
-	// mpfr_sub_ui(rop, t, 1, round);
+	mpfr_add_ui(t, snx, 1, round);
 
-	mpfr_add_ui(m1, sn_p, 1, round);
+	mpfr_printf("s%ix: %.60Rf\n", n, snx);
+
+	mpfr_add_ui(m1, sn, 1, round);
 	mpfr_div(m1, m1, t, round);
 	mpfr_pow_ui(m1, m1, 4, round);
 
 	mpfr_pow_si(m2, t, -4, round);
 
-	mpfr_printf("an-1: %.60Rf\nt : %.60Rf\nm1 : %.60Rf\nm2 : %.60Rf\n", an_p, t, m1, m2);
+	mpfr_printf("a%i: %.60Rf\nt : %.60Rf\nm1 : %.60Rf\nm2 : %.60Rf\n", n - 1, an_p, t, m1, m2);
 
 	mpfr_t tmp;
 	mpfr_init2(tmp, prec);
@@ -247,4 +269,6 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 
 	mpfr_clear(tmp);
 	mpfr_clears(t, m1, m2, (mpfr_ptr)0);
+	mpfr_printf("a%i: %.60Rf\n", n, an);
+	printf("[INFO] End AN\n");
 }
