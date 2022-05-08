@@ -32,16 +32,18 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 
 /*
 ITER = 3 : 170
-ITER = 4 : 2720 ?
+ITER = 4 : 2470
+ITER = 5 : 35700
+ITER = 6 : 570000 ?
 */
 
-#define DIGITS 2720
+#define DIGITS 900000000
 
 #define CONV 6
 
 #define PREC (((DIGITS) + 20) * (CONV)) >> 1
 
-#define ITER 4
+#define ITER 12
 
 //--------------------------------------------------------------------------------------------
 
@@ -105,7 +107,7 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	mpfr_fprintf(out, "%.*RNf\n", DIGITS, pi);
+	mpfr_fprintf(out, "%.*RNf\n", DIGITS - 20, pi);
 
 	fclose(out);
 
