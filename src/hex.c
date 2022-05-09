@@ -27,23 +27,26 @@ void mpfr_ui_div_ui(mpfr_t rop, unsigned int op1, unsigned int op2, mpfr_rnd_t r
 void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round);
+int compare_files(FILE *file1, FILE *file2);
 
 //--------------------------------------------------------------------------------------------
 
 /*
-ITER = 3 : 170
-ITER = 4 : 2470
-ITER = 5 : 35700
-ITER = 6 : 570000 ?
+ITER = 2 : 7
+ITER = 3 : 170     > 16 * 7      = 112
+ITER = 4 : 2470    < 16 * 170    = 2720
+ITER = 5 : 35700   < 16 * 2470   = 39520
+ITER = 6 : 514770  < 16 * 35700  = 571200
+ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 */
 
-#define DIGITS 900000000
+#define DIGITS 1000
 
 #define CONV 6
 
 #define PREC (((DIGITS) + 20) * (CONV)) >> 1
 
-#define ITER 12
+#define ITER 4
 
 //--------------------------------------------------------------------------------------------
 
@@ -93,7 +96,7 @@ int main(void)
 
 	printf("\n\n[INFO] main:\n");
 
-	mpfr_printf("an: %.1000Rf\n", an);
+	mpfr_printf("an: %.500Rf\n", an);
 
 	mpfr_ui_div(pi, 1, an, 0);
 
@@ -111,7 +114,21 @@ int main(void)
 
 	fclose(out);
 
-	mpfr_printf("PI = %.1100Rf\n", pi);
+	FILE *correct_pi = fopen("pi copy.txt", "r");
+	FILE *our_pi = fopen("pi-out.txt", "r");
+	if (correct_pi == NULL || our_pi == NULL)
+	{
+		exit(EXIT_FAILURE);
+	}
+
+	int correctness = compare_files(out, correct_pi);
+
+	printf("%i\n", correctness);
+
+	fclose(correct_pi);
+	fclose(our_pi);
+
+	mpfr_printf("PI = %.500Rf\n", pi);
 
 	// mpfr_printf("test: sn: %.1100Rf \nsnx: %.1100Rf \nan: %.1100Rf\n", sn, snx, an, sn_p, snx_p, an_p);
 
@@ -273,4 +290,26 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_clears(t, m1, m2, (mpfr_ptr)0);
 	mpfr_printf("a%i: %.60Rf\n", n, an);
 	printf("[INFO] End AN\n");
+}
+
+int compare_files(FILE *file1, FILE *file2)
+{
+	int counter = 0;
+	while (1)
+	{
+		char c1 = fgetc(file1);
+		char c2 = fgetc(file2);
+		printf("c1: %c \nc2: %c\n", c1, c2);
+
+		if (feof(file1) || feof(file2))
+		{
+			break;
+		}
+		if (c1 != c2)
+		{
+			break;
+		}
+		++counter;
+	}
+	return counter;
 }
