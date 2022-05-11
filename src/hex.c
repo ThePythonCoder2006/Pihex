@@ -56,10 +56,10 @@ void progress_bar(const char *name, int progress);
 #if DEBUG == 1
 #define mpfr_debug(format, ...)                              \
 	yellow();                                                  \
-	mpfr_printf("[BEBUG] " format __VA_OPT__(, ) __VA_ARGS__); \
+	mpfr_printf("[DEBUG] " format __VA_OPT__(, ) __VA_ARGS__); \
 	reset()
 #else
-#define mpfr_debug(format, ...) printf("")
+#define mpfr_debug(format, ...)
 #endif
 
 /*
@@ -71,13 +71,13 @@ ITER = 6 : 514770  < 16 * 35700  = 571200
 ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 */
 
-#define DIGITS 2000000
-
-#define CONV 6
-
-#define PREC (((DIGITS) + 20) * (CONV)) >> 1
-
-#define ITER 4
+//#define DIGITS 10000000
+//
+#define CONV 3.321928
+//
+//#define PREC (((DIGITS) + 20) * (CONV)) >> 1
+//
+//#define ITER 4
 
 #define PROG_BAR_LEN 25
 
@@ -86,11 +86,48 @@ ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 mpfr_t sn, snx, an;
 mpfr_t sn_p, snx_p, an_p;
 
+// variables to store the date and time components
+int hours, minutes, seconds, day, month, year;
+
+size_t digits, prec;
+unsigned char iter;
+
 int main(void)
 {
-	// variables to store the date and time components
-	int hours, minutes, seconds, day, month, year;
+	// getting iter and prec variables
+	//----------------------------------------------------------------
+	printf("Enter the number of digits you want to calculate : ");
+	fflush(stdout);
+	scanf("%i", &digits);
+	fflush(stdin);
 
+	mpfr_t prec_temp, tmp;
+	mpfr_init2(prec_temp, 1024);
+	mpfr_log_ui(prec_temp, digits, 0);
+
+	mpfr_init2(tmp, 1024);
+	mpfr_log_ui(tmp, 16, 0);
+
+	mpfr_div(prec_temp, prec_temp, tmp, 0);
+
+	mpfr_clear(tmp);
+
+	mpfr_printf("%Rf\n", prec_temp);
+
+	iter = mpfr_get_ui(prec_temp, MPFR_RNDU) + 1;
+
+	mpfr_set_ui(prec_temp, digits, 0);
+	mpfr_mul_d(prec_temp, prec_temp, CONV, 0);
+	prec = mpfr_get_ui(prec_temp, MPFR_RNDU);
+
+	assert(prec >= 1);
+
+	mpfr_clear(prec_temp);
+
+	printf("do you want to start calculating pi with an accuraty of %i digits, using %i bits per number, and %i iteration of the formula [Y/N] :\n", digits, prec, iter);
+
+	// getting time
+	//----------------------------------------------------------------
 	time_t now;
 	time(&now);
 	struct tm *local = localtime(&now);
@@ -103,34 +140,35 @@ int main(void)
 	year = local->tm_year + 1900; // get year since 1900
 
 	char out_path[1024];
-	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%i.txt", day, month, year, hours, minutes, seconds, ITER, DIGITS);
+	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%i.txt", day, month, year, hours, minutes, seconds, iter, digits);
 
-	mpfr_inits2(PREC, sn, snx, an, (mpfr_ptr)0);
-	mpfr_inits2(PREC, sn_p, snx_p, an_p, (mpfr_ptr)0);
+	// setting up my global variables
+	//----------------------------------------------------------------
+	mpfr_inits2(prec, sn, snx, an, (mpfr_ptr)0);
+	mpfr_inits2(prec, sn_p, snx_p, an_p, (mpfr_ptr)0);
 
 	mpfr_t pi;
-	mpfr_init2(pi, PREC);
-
-	//----------------------------------
+	mpfr_init2(pi, prec);
 
 	// initialize th value of sn to s1 (sqrt(2) - 1)
+	//----------------------------------
 	mpfr_sqrt_ui(sn, 2, 0);
 	mpfr_sub_ui(sn, sn, 1, 0);
 
-	//----------------------------------
-
 	// initialize th value of an to a0 (1/3)
+	//----------------------------------
 	mpfr_ui_div_ui(an, 1, 3, 0);
 
 	//----------------------------------
 
-	for (int i = 1; i < ITER; ++i)
+	for (int i = 1; i < iter; ++i)
 	{
-		mpfr_snx(i, PREC, 0);
+		mpfr_snx(i, prec, 0);
 
-		mpfr_an(i, PREC, 0);
+		mpfr_an(i, prec, 0);
 
-		mpfr_sn(i + 1, PREC, 0);
+		if (i != iter - 1)
+			mpfr_sn(i + 1, prec, 0);
 	}
 
 	printf("\n\n[INFO] main:\n");
@@ -147,7 +185,7 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	mpfr_fprintf(out, "%.*RNf\n", DIGITS - 20, pi);
+	mpfr_fprintf(out, "%.*RNf\n", digits - 20, pi);
 
 	fclose(out);
 
@@ -191,9 +229,9 @@ void mpfr_ui_div_ui(mpfr_t rop, unsigned int op1, unsigned int op2, mpfr_rnd_t r
 
 void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
-	printf("\n[INFO] S%i\n", n);
+	mpfr_debug("\n[INFO] S%i\n", n);
 
-	assert(n <= ITER);
+	assert(n <= iter);
 	assert(n >= 1);
 
 	if (n < 1)
@@ -202,11 +240,14 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 		exit(EXIT_FAILURE);
 	}
 
-	progress_bar("SN", 0);
+	char sn_name[10];
+	sprintf(sn_name, "S%i", n);
+
+	progress_bar(sn_name, 0);
 
 	mpfr_swap(sn, sn_p); // store the previous sn in the right varial and so frees the
 
-	progress_bar("SN", 5);
+	progress_bar(sn_name, 5);
 
 	// consts --------------
 
@@ -218,20 +259,20 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_mul_ui(u, u, 8, round);
 	mpfr_qtrt(u, u, round);
 
-	progress_bar("SN", 40);
+	progress_bar(sn_name, 40);
 
 	mpfr_t t;
 	mpfr_init2(t, prec);
 	mpfr_add_ui(t, snx, 1, round);
 
-	progress_bar("SN", 65);
+	progress_bar(sn_name, 65);
 
 	//--------------
 
 	mpfr_ui_sub(sn, 1, snx, round);
 	mpfr_pow_ui(sn, sn, 4, round);
 
-	progress_bar("SN", 75);
+	progress_bar(sn_name, 75);
 
 	mpfr_t mul, tmp;
 	mpfr_inits2(prec, mul, tmp, (mpfr_ptr)0);
@@ -240,13 +281,13 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_sqr(mul, mul, round);
 	mpfr_div(sn, sn, mul, round);
 
-	progress_bar("SN", 85);
+	progress_bar(sn_name, 85);
 
 	mpfr_sqr(tmp, u, round);
 	mpfr_sqr(mul, t, round);
 	mpfr_add(mul, mul, tmp, round);
 
-	progress_bar("SN", 90);
+	progress_bar(sn_name, 90);
 
 	mpfr_div(sn, sn, mul, round);
 
@@ -258,42 +299,46 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 
 	mpfr_debug("s%i:  %.60Rf\n", n, sn);
 
-	progress_bar("SN", 100);
+	progress_bar(sn_name, 100);
 	printf("\n");
 
-	printf("[INFO] End S%i\n", n);
+	mpfr_debug("[INFO] End S%i\n", n);
 }
 
 void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
-	printf("\n[INFO] S%iX\n", n);
+	mpfr_debug("\n[INFO] S%iX\n", n);
 
-	assert(n <= ITER);
+	assert(n <= iter);
 	assert(n >= -20);
 
-	progress_bar("SNX", 0);
+	char snx_name[10];
+	sprintf(snx_name, "S%iX", n);
+
+	progress_bar(snx_name, 0);
 
 	mpfr_swap(snx, snx_p);
 
-	progress_bar("SNX", 5);
+	progress_bar(snx_name, 5);
 
 	mpfr_pow_ui(snx, sn, 4, round);
 	mpfr_ui_sub(snx, 1, snx, round);
 
-	progress_bar("SNX", 50);
+	progress_bar(snx_name, 50);
 
 	mpfr_qtrt(snx, snx, round);
 	mpfr_debug("s%ix: %.60Rf\n", n, snx);
 
-	progress_bar("SNX", 100);
+	progress_bar(snx_name, 100);
+	printf("\n");
 
-	printf("[INFO] End S%iX\n", n);
+	mpfr_debug("\n[INFO] End S%iX\n", n);
 }
 
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
-	printf("\n[INFO] A%i\n", n);
-	assert(n <= ITER);
+	mpfr_debug("\n[INFO] A%i\n", n);
+	assert(n <= iter);
 
 	if (n <= 0)
 	{
@@ -301,20 +346,23 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 		exit(EXIT_FAILURE); // exit(1)
 	}
 
-	progress_bar("AN", 0);
+	char an_name[10];
+	sprintf(an_name, "A%i", n);
+
+	progress_bar(an_name, 0);
 
 	mpfr_swap(an, an_p);
 
-	progress_bar("AN", 5);
+	progress_bar(an_name, 5);
 
 	mpfr_t t, m1, m2;
 	mpfr_inits2(prec, t, m1, m2, (mpfr_ptr)0);
 
-	progress_bar("AN", 10);
+	progress_bar(an_name, 10);
 
 	mpfr_add_ui(t, snx, 1, round);
 
-	progress_bar("AN", 12);
+	progress_bar(an_name, 12);
 
 	mpfr_debug("s%ix: %.60Rf\n", n, snx);
 
@@ -322,18 +370,18 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_div(m1, m1, t, round);
 	mpfr_pow_ui(m1, m1, 4, round);
 
-	progress_bar("AN", 20);
+	progress_bar(an_name, 20);
 
 	mpfr_pow_si(m2, t, -4, round);
 
-	progress_bar("AN", 25);
+	progress_bar(an_name, 25);
 
 	mpfr_debug("a%i: %.60Rf\nt : %.60Rf\nm1 : %.60Rf\nm2 : %.60Rf\n", n - 1, an_p, t, m1, m2);
 
 	mpfr_t tmp;
 	mpfr_init2(tmp, prec);
 
-	progress_bar("AN", 30);
+	progress_bar(an_name, 30);
 
 	mpfr_mul_si(an, m1, -4, round);
 	mpfr_mul_si(tmp, m2, -12, round);
@@ -341,25 +389,25 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_add_ui(an, an, 1, round);
 	// mpfr_debug("PLUS2: %.60Rg\n", an_c[n]);
 
-	progress_bar("AN", 50);
+	progress_bar(an_name, 50);
 
 	mpfr_ui_pow_ui(tmp, 4, (2 * n) - 1, round);
 	mpfr_div_ui(tmp, tmp, 3, round);
 	// mpfr_debug("PLUS1: %.60Rg\n", tmp);
 
-	progress_bar("AN", 65);
+	progress_bar(an_name, 65);
 
 	mpfr_mul(an, an, tmp, round);
 	mpfr_neg(an, an, round);
 	// mpfr_debug("PLUS: %.60Rf\n", an_c[n]);
 
-	progress_bar("AN", 80);
+	progress_bar(an_name, 80);
 
 	mpfr_mul_ui(tmp, m1, 16, round);
 	mpfr_mul(tmp, tmp, an_p, round);
 	// mpfr_debug("start: %.60Rf\n", start);
 
-	progress_bar("AN", 95);
+	progress_bar(an_name, 95);
 
 	mpfr_sub(an, tmp, an, round);
 	// mpfr_debug("an: %.60Rf\n", an_c[n]);
@@ -368,9 +416,10 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	mpfr_clears(t, m1, m2, (mpfr_ptr)0);
 	mpfr_debug("a%i: %.60Rf\n", n, an);
 
-	progress_bar("AN", 100);
+	progress_bar(an_name, 100);
+	printf("\n");
 
-	printf("[INFO] End A%i\n", n);
+	mpfr_debug("\n[INFO] End A%i\n", n);
 }
 
 int compare_files(FILE *file1, FILE *file2)
@@ -421,6 +470,17 @@ void progress_bar(const char *name, int progress)
 		printf("#");
 	for (unsigned char i = progress / (100 / PROG_BAR_LEN); i < PROG_BAR_LEN; ++i)
 		printf("-");
-	printf("|  %i%%", progress);
+
+	int ex_t_h, ex_t_m, ex_t_s;
+
+	time_t t;
+	time(&t);
+	struct tm *local = localtime(&t);
+
+	ex_t_h = local->tm_hour - hours;
+	ex_t_m = local->tm_min - minutes;
+	ex_t_s = local->tm_sec - seconds;
+
+	printf("|  %i%% %dh%dm%ds", progress, ex_t_h, ex_t_m, ex_t_s);
 	fflush(stdout);
 }
