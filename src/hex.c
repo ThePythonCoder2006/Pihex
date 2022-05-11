@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include <gmp.h>
 #include <mpfr.h>
@@ -48,6 +49,7 @@ int compare_files(FILE *file1, FILE *file2);
 void yellow(void);
 void reset(void);
 void progress_bar(const char *name, int progress);
+FILE *open_file_or_panic(const char *path, const char *mode);
 
 //--------------------------------------------------------------------------------------------
 
@@ -71,13 +73,7 @@ ITER = 6 : 514770  < 16 * 35700  = 571200
 ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 */
 
-//#define DIGITS 10000000
-//
 #define CONV 3.321928
-//
-//#define PREC (((DIGITS) + 20) * (CONV)) >> 1
-//
-//#define ITER 4
 
 #define PROG_BAR_LEN 25
 
@@ -86,14 +82,15 @@ ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 mpfr_t sn, snx, an;
 mpfr_t sn_p, snx_p, an_p;
 
-// variables to store the date and time components
-int hours, minutes, seconds, day, month, year;
-
-size_t digits, prec;
+uint64_t digits, prec;
 unsigned char iter;
+
+time_t start;
 
 int main(void)
 {
+
+	printf("%" PRIu64 "\n", MPFR_PREC_MAX);
 	// getting iter and prec variables
 	//----------------------------------------------------------------
 	printf("Enter the number of digits you want to calculate : ");
@@ -118,19 +115,33 @@ int main(void)
 
 	mpfr_set_ui(prec_temp, digits, 0);
 	mpfr_mul_d(prec_temp, prec_temp, CONV, 0);
-	prec = mpfr_get_ui(prec_temp, MPFR_RNDU);
+	prec = mpfr_get_ui(prec_temp, MPFR_RNDU) + 200;
 
-	assert(prec >= 1);
+	assert(iter >= 1);
 
 	mpfr_clear(prec_temp);
 
-	printf("do you want to start calculating pi with an accuraty of %i digits, using %i bits per number, and %i iteration of the formula [Y/N] :\n", digits, prec, iter);
+	// I/O
+	//----------------------------------------------------------------
+	printf("do you want to start calculating pi with an accuraty of %llu digits, using %" PRIu64 " bits per number and do %i iteration of the formula [Y/N] :\n", digits, prec, iter);
+	fflush(stdout);
+	char ans;
+	scanf("%c", &ans);
+	fflush(stdin);
+
+	if (ans != 'y' && ans != 'Y')
+	{
+		printf("terminating the program.");
+		exit(0);
+	}
 
 	// getting time
 	//----------------------------------------------------------------
-	time_t now;
-	time(&now);
-	struct tm *local = localtime(&now);
+	time(&start);
+	struct tm *local = localtime(&start);
+
+	// variables to store the date and time components
+	int hours, minutes, seconds, day, month, year;
 
 	hours = local->tm_hour;				// get hours since midnight (0-23)
 	minutes = local->tm_min;			// get minutes passed after the hour (0-59)
@@ -177,29 +188,23 @@ int main(void)
 
 	mpfr_ui_div(pi, 1, an, 0);
 
-	FILE *out = fopen(out_path, "ab+");
-
-	if (out == NULL)
-	{
-		fprintf(stderr, "could not open output file: %s", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	mpfr_fprintf(out, "%.*RNf\n", digits - 20, pi);
+	FILE *out = open_file_or_panic(out_path, "ab+");
+	mpfr_fprintf(out, "%.*RNf\n", digits, pi);
 
 	fclose(out);
 
-	FILE *correct_pi = fopen("pi copy.txt", "r");
-	FILE *our_pi = fopen(out_path, "r");
-	if (correct_pi == NULL || our_pi == NULL)
-	{
-		fprintf(stderr, "could not open one of pi file file: %s", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
+	FILE *correct_pi = open_file_or_panic("pi copy.txt", "r");
+	FILE *our_pi = open_file_or_panic(out_path, "r");
 
 	int correctness = compare_files(our_pi, correct_pi);
 
 	printf("[INFO] %i decimals of pi are correct in the calculations\n", correctness);
+
+	time_t end;
+	time(&end);
+
+	double time_taken = (double)(end - start);
+	printf("[INFO] it took %i seconds\n", time_taken);
 
 	fclose(correct_pi);
 	fclose(our_pi);
@@ -475,12 +480,23 @@ void progress_bar(const char *name, int progress)
 
 	time_t t;
 	time(&t);
-	struct tm *local = localtime(&t);
 
-	ex_t_h = local->tm_hour - hours;
-	ex_t_m = local->tm_min - minutes;
-	ex_t_s = local->tm_sec - seconds;
+	int dif = (double)(t - start);
+	ex_t_s = dif % 60;
+	ex_t_m = (dif - ex_t_s) / 60;
+	ex_t_h = (dif - ex_t_s) / 3600;
 
 	printf("|  %i%% %dh%dm%ds", progress, ex_t_h, ex_t_m, ex_t_s);
 	fflush(stdout);
+}
+
+FILE *open_file_or_panic(const char *path, const char *mode)
+{
+	FILE *f = fopen(path, mode);
+	if (f == NULL)
+	{
+		fprintf(stderr, "could not open file '%s' because : %s", path, strerror(errno));
+		exit(1);
+	}
+	return f;
 }
