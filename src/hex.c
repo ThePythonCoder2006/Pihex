@@ -89,8 +89,6 @@ time_t start;
 
 int main(void)
 {
-
-	printf("%" PRIu64 "\n", MPFR_PREC_MAX);
 	// getting iter and prec variables
 	//----------------------------------------------------------------
 	printf("Enter the number of digits you want to calculate : ");
