@@ -15,7 +15,7 @@
 // or  cd C:/Users/paul/Desktop/documents/programation/pihex/base
 
 // COMPILE:
-//   gcc -o bin/hex-gmp src/hex.c -I include -L lib -lgmp -lmpfr
+//   gcc -o bin/hex-gmp src/hex-gmp-4.2.1.c -I include -L lib -lgmp -lmpfr
 
 // RUN :
 //   ./bin/hex-gmp
