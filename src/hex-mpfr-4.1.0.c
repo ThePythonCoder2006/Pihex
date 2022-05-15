@@ -11,14 +11,14 @@
 #include <mpfr.h>
 
 // GO TO DIR:
-//     cd C:/Users/Elève/Desktop/document/progra/pihex
-// or  cd C:/Users/paul/Desktop/documents/programation/pihex
+//     cd C:/Users/Elève/Desktop/document/progra/pihex/base
+// or  cd C:/Users/paul/Desktop/documents/programation/pihex/base
 
 // COMPILE:
-//   gcc -o bin/main src/hex.c -I include -L lib -lmingw32 -lgmp -lmpfr
+//   gcc -o bin/hex-mpfr src/hex.c -I include -L lib -lgmp -lmpfr
 
 // RUN :
-//   ./bin/main
+//   ./bin/hex-mpfr
 
 /*
 colors:
