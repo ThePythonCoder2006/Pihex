@@ -48,10 +48,12 @@ void mpf_an(int n, mp_bitcnt_t prec);
 void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2);
 
 int compare_files(FILE *file1, FILE *file2);
-void yellow(void);
-void reset(void);
 void progress_bar(const char *name, int progress);
 FILE *open_file_or_panic(const char *path, const char *mode);
+
+// colors ----------------------
+void yellow(void);
+void reset(void);
 
 //--------------------------------------------------------------------------------------------
 
