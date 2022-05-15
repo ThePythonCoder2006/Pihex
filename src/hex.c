@@ -46,10 +46,12 @@ void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 
 int compare_files(FILE *file1, FILE *file2);
-void yellow(void);
-void reset(void);
 void progress_bar(const char *name, int progress);
 FILE *open_file_or_panic(const char *path, const char *mode);
+
+// colors ----------------------
+void yellow(void);
+void reset(void);
 
 //--------------------------------------------------------------------------------------------
 
