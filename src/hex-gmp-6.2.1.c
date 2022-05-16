@@ -15,7 +15,7 @@
 // or  cd C:/Users/paul/Desktop/documents/programation/pihex/base
 
 // COMPILE:
-//   gcc -o bin/hex-gmp src/hex-gmp-4.2.1.c -I include -L lib -lgmp -lmpfr
+//   gcc -o bin/hex-gmp src/hex-gmp-6.2.1.c -I include -L lib -lgmp -lmpfr
 
 // RUN :
 //   ./bin/hex-gmp
@@ -42,7 +42,7 @@ void mpf_qtrt(mpf_t rop, mpf_t op);
 void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2);
 
 void mpf_sn(int n, mp_bitcnt_t prec);
-void mpf_snx(int n, mp_bitcnt_t prec);
+void mpf_snx(int n);
 void mpf_an(int n, mp_bitcnt_t prec);
 
 void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2);
@@ -55,9 +55,13 @@ FILE *open_file_or_panic(const char *path, const char *mode);
 void yellow(void);
 void reset(void);
 
+// cursor ----------------------
+#define hide_cursor() printf("\e[?25l")
+
+#define show_cursor() printf("\e[?25h")
 //--------------------------------------------------------------------------------------------
 
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG == 0
 #define mpf_debug(format, ...)                              \
@@ -97,7 +101,7 @@ int main(void)
 	//----------------------------------------------------------------
 	printf("Enter the number of digits you want to calculate : ");
 	fflush(stdout);
-	scanf("%i", &digits);
+	scanf("%lli", &digits);
 	fflush(stdin);
 
 	mpfr_t prec_temp, tmp;
@@ -137,6 +141,8 @@ int main(void)
 		exit(0);
 	}
 
+	hide_cursor();
+
 	// getting time
 	//----------------------------------------------------------------
 	time(&start);
@@ -153,7 +159,7 @@ int main(void)
 	year = local->tm_year + 1900; // get year since 1900
 
 	char out_path[1024];
-	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%i.txt", day, month, year, hours, minutes, seconds, iter, digits);
+	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%" PRIu64 ".txt", day, month, year, hours, minutes, seconds, iter, digits);
 
 	// setting up my global variables
 	//----------------------------------------------------------------
@@ -180,7 +186,7 @@ int main(void)
 
 	for (int i = 1; i < iter; ++i)
 	{
-		mpf_snx(i, prec);
+		mpf_snx(i);
 
 		mpf_an(i, prec);
 
@@ -210,7 +216,7 @@ int main(void)
 	time(&end);
 
 	double time_taken = (double)(end - start);
-	printf("[INFO] it took %i seconds\n", time_taken);
+	printf("[INFO] it took %.0f seconds\n", time_taken);
 
 	fclose(correct_pi);
 	fclose(our_pi);
@@ -218,19 +224,7 @@ int main(void)
 	mpf_debug("PI = %.100Ff\n", pi);
 
 	printf("[INFO] End\n");
-
-	mpf_t multest;
-	mpf_init(multest);
-
-	mpf_set_ui(multest, 100);
-
-	mpf_debug("%.60Ff\n", multest);
-
-	mpf_mul_si(multest, multest, -7);
-
-	mpf_debug("100 x -7 = %.60Ff\n", multest);
-
-	mpf_clear(multest);
+	show_cursor();
 
 	mpf_clear(pi);
 	mpf_clears(sn, snx, an, (mpf_ptr)NULL);
@@ -272,57 +266,73 @@ void mpf_sn(int n, mp_bitcnt_t prec)
 
 	mpf_swap(sn, sn_p); // store the previous sn in the right varial and so frees the
 
-	progress_bar(sn_name, 5);
+	progress_bar(sn_name, 4);
 
 	// consts --------------
 
 	mpf_t u;
 	mpf_init2(u, prec);
+	progress_bar(sn_name, 8);
 	mpf_mul(u, snx, snx);
+	progress_bar(sn_name, 12);
 	mpf_add_ui(u, u, 1);
+	progress_bar(sn_name, 16);
 	mpf_mul(u, u, snx);
+	progress_bar(sn_name, 20);
 	mpf_mul_ui(u, u, 8);
+	progress_bar(sn_name, 24);
 	mpf_qtrt(u, u);
-
-	progress_bar(sn_name, 40);
+	progress_bar(sn_name, 28);
 
 	mpf_t t;
+	progress_bar(sn_name, 32);
 	mpf_init2(t, prec);
+	progress_bar(sn_name, 36);
 	mpf_add_ui(t, snx, 1);
-
-	progress_bar(sn_name, 65);
+	progress_bar(sn_name, 40);
 
 	//--------------
 
 	mpf_ui_sub(sn, 1, snx);
+	progress_bar(sn_name, 44);
 	mpf_pow_ui(sn, sn, 4);
 
-	progress_bar(sn_name, 75);
+	progress_bar(sn_name, 48);
 
 	mpf_t mul, tmp;
+	progress_bar(sn_name, 52);
 	mpf_init2(mul, prec);
+	progress_bar(sn_name, 56);
 	mpf_init2(tmp, prec);
 
+	progress_bar(sn_name, 60);
 	mpf_add(mul, t, u);
+	progress_bar(sn_name, 64);
 	mpf_mul(mul, mul, mul);
+	progress_bar(sn_name, 68);
 	mpf_div(sn, sn, mul);
 
-	progress_bar(sn_name, 85);
+	progress_bar(sn_name, 72);
 
 	mpf_mul(tmp, u, u);
+	progress_bar(sn_name, 76);
 	mpf_mul(mul, t, t);
+	progress_bar(sn_name, 80);
 	mpf_add(mul, mul, tmp);
 
-	progress_bar(sn_name, 90);
+	progress_bar(sn_name, 84);
 
 	mpf_div(sn, sn, mul);
 
+	progress_bar(sn_name, 88);
 	mpf_clears(mul, tmp, (mpf_ptr)0);
 
+	progress_bar(sn_name, 92);
 	//--------------
 	mpf_clear(u);
 	mpf_clear(t);
 
+	progress_bar(sn_name, 96);
 	mpf_debug("s%i:  %.60Ff\n", n, sn);
 
 	progress_bar(sn_name, 100);
@@ -331,7 +341,7 @@ void mpf_sn(int n, mp_bitcnt_t prec)
 	mpf_debug("[INFO] End S%i\n", n);
 }
 
-void mpf_snx(int n, mp_bitcnt_t prec)
+void mpf_snx(int n)
 {
 	mpf_debug("\n[INFO] S%iX\n", n);
 
@@ -358,12 +368,12 @@ void mpf_snx(int n, mp_bitcnt_t prec)
 	progress_bar(snx_name, 100);
 	printf("\n");
 
-	mpf_debug("\n[INFO] End S%iX\n", n);
+	mpf_debug("End S%iX\n", n);
 }
 
 void mpf_an(int n, mp_bitcnt_t prec)
 {
-	mpf_debug("\n[INFO] A%i\n", n);
+	mpf_debug("A%i\n", n);
 	assert(n <= iter);
 
 	if (n <= 0)
@@ -416,23 +426,23 @@ void mpf_an(int n, mp_bitcnt_t prec)
 	mpf_mul_si(tmp, m2, -12);
 	mpf_add(an, tmp, an);
 	mpf_add_ui(an, an, 1);
-	mpf_debug("PLUS2: %.60Rg\n", an);
+	mpf_debug("PLUS2: %.60Ff\n", an);
 
 	progress_bar(an_name, 50);
 
 	mpz_t pow;
 	mpz_init(pow);
 	mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
-	mpz_div_ui(pow, pow, 3);
-	mpf_debug("PLUS1: %.60Rg\n", tmp);
+	mpf_set_z(tmp, pow);
+	mpf_div_ui(tmp, tmp, 3);
+	mpf_debug("PLUS1: %Ff\n", tmp);
+
+	mpz_clear(pow);
 
 	progress_bar(an_name, 65);
 
-	mpf_set_z(tmp, pow);
-
 	mpf_mul(an, an, tmp);
 	mpf_neg(an, an);
-	mpz_clear(pow);
 	mpf_debug("PLUS: %.60Ff\n", an);
 
 	progress_bar(an_name, 80);
@@ -453,7 +463,7 @@ void mpf_an(int n, mp_bitcnt_t prec)
 	progress_bar(an_name, 100);
 	printf("\n");
 
-	mpf_debug("\n[INFO] End A%i\n", n);
+	mpf_debug("End A%i\n", n);
 }
 
 int compare_files(FILE *file1, FILE *file2)
@@ -497,7 +507,6 @@ void progress_bar(const char *name, int progress)
 	}
 	assert(progress <= 100);
 
-	char spaces[PROG_BAR_DEC + 5];
 	unsigned char nb_spaces = PROG_BAR_DEC - strlen(name);
 
 	printf("\r%s", name);
@@ -516,7 +525,7 @@ void progress_bar(const char *name, int progress)
 
 	int dif = (double)(t - start);
 	ex_t_s = dif % 60;
-	ex_t_m = (dif - ex_t_s) / 60;
+	ex_t_m = (dif - ex_t_s) % 60;
 	ex_t_h = (dif - ex_t_s) / 3600;
 
 	printf("|  %i%% %dh%dm%ds", progress, ex_t_h, ex_t_m, ex_t_s);
