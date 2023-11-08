@@ -11,14 +11,14 @@
 #include <mpfr.h>
 
 // GO TO DIR:
-//     cd C:/Users/Elève/Desktop/document/progra/pihex
-// or  cd C:/Users/paul/Desktop/documents/programation/pihex
+//     cd C:/Users/Elève/Desktop/document/progra/pihex/base
+// or  cd C:/Users/paul/Desktop/documents/programation/pihex/base
 
 // COMPILE:
-//   gcc -o bin/main src/hex.c -I include -L lib -lmingw32 -lgmp -lmpfr
+//   gcc -o bin/hex-mpfr src/hex-mpfr-4.1.0.c -I include -L lib -lgmp -lmpfr
 
 // RUN :
-//   ./bin/main
+//   ./bin/hex-mpfr
 
 /*
 colors:
@@ -42,14 +42,16 @@ void mpfr_qtrt(mpfr_t rop, mpfr_t op, mpfr_rnd_t round);
 void mpfr_ui_div_ui(mpfr_t rop, unsigned int op1, unsigned int op2, mpfr_rnd_t round);
 
 void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round);
-void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round);
+void mpfr_snx(int n, mpfr_rnd_t round);
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round);
 
 int compare_files(FILE *file1, FILE *file2);
-void yellow(void);
-void reset(void);
 void progress_bar(const char *name, int progress);
 FILE *open_file_or_panic(const char *path, const char *mode);
+
+// colors ----------------------
+void yellow(void);
+void reset(void);
 
 //--------------------------------------------------------------------------------------------
 
@@ -93,7 +95,7 @@ int main(void)
 	//----------------------------------------------------------------
 	printf("Enter the number of digits you want to calculate : ");
 	fflush(stdout);
-	scanf("%i", &digits);
+	scanf("%" PRIu64, &digits);
 	fflush(stdin);
 
 	mpfr_t prec_temp, tmp;
@@ -121,7 +123,7 @@ int main(void)
 
 	// I/O
 	//----------------------------------------------------------------
-	printf("do you want to start calculating pi with an accuraty of %llu digits, using %" PRIu64 " bits per number and do %i iteration of the formula [Y/N] :\n", digits, prec, iter);
+	printf("do you want to start calculating pi with an accuraty of %" PRIu64 " digits, using %" PRIu64 " bits per number and do %" PRIu8 " iteration of the formula [Y/N] :\n", digits, prec, iter);
 	fflush(stdout);
 	char ans;
 	scanf("%c", &ans);
@@ -149,7 +151,7 @@ int main(void)
 	year = local->tm_year + 1900; // get year since 1900
 
 	char out_path[1024];
-	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%i.txt", day, month, year, hours, minutes, seconds, iter, digits);
+	sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%" PRIu64 ".txt", day, month, year, hours, minutes, seconds, iter, digits);
 
 	// setting up my global variables
 	//----------------------------------------------------------------
@@ -172,7 +174,7 @@ int main(void)
 
 	for (int i = 1; i < iter; ++i)
 	{
-		mpfr_snx(i, prec, 0);
+		mpfr_snx(i, 0);
 
 		mpfr_an(i, prec, 0);
 
@@ -202,7 +204,7 @@ int main(void)
 	time(&end);
 
 	double time_taken = (double)(end - start);
-	printf("[INFO] it took %i seconds\n", time_taken);
+	printf("[INFO] it took %.2f seconds\n", time_taken);
 
 	fclose(correct_pi);
 	fclose(our_pi);
@@ -305,12 +307,12 @@ void mpfr_sn(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	progress_bar(sn_name, 100);
 	printf("\n");
 
-	mpfr_debug("[INFO] End S%i\n", n);
+	mpfr_debug("End S%i\n", n);
 }
 
-void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round)
+void mpfr_snx(int n, mpfr_rnd_t round)
 {
-	mpfr_debug("\n[INFO] S%iX\n", n);
+	mpfr_debug("S%iX\n", n);
 
 	assert(n <= iter);
 	assert(n >= -20);
@@ -335,12 +337,12 @@ void mpfr_snx(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	progress_bar(snx_name, 100);
 	printf("\n");
 
-	mpfr_debug("\n[INFO] End S%iX\n", n);
+	mpfr_debug("End S%iX\n", n);
 }
 
 void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 {
-	mpfr_debug("\n[INFO] A%i\n", n);
+	mpfr_debug("A%i\n", n);
 	assert(n <= iter);
 
 	if (n <= 0)
@@ -422,7 +424,7 @@ void mpfr_an(int n, mpfr_prec_t prec, mpfr_rnd_t round)
 	progress_bar(an_name, 100);
 	printf("\n");
 
-	mpfr_debug("\n[INFO] End A%i\n", n);
+	mpfr_debug("End A%i\n", n);
 }
 
 int compare_files(FILE *file1, FILE *file2)
@@ -436,13 +438,9 @@ int compare_files(FILE *file1, FILE *file2)
 		// printf("c1: %c \nc2: %c\n", c1, c2);
 
 		if (feof(file1) || feof(file2))
-		{
 			break;
-		}
 		if (c1 != c2)
-		{
 			break;
-		}
 		++counter;
 	}
 	return counter;
@@ -462,7 +460,7 @@ void progress_bar(const char *name, int progress)
 {
 	assert(progress <= 100);
 
-	char spaces[PROG_BAR_DEC + 5];
+	// char spaces[PROG_BAR_DEC + 5];
 	unsigned char nb_spaces = PROG_BAR_DEC - strlen(name);
 
 	printf("\r%s", name);
