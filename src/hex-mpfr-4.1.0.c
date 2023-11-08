@@ -123,7 +123,7 @@ int main(void)
 
 	// I/O
 	//----------------------------------------------------------------
-	printf("do you want to start calculating pi with an accuraty of %llu digits, using %" PRIu64 " bits per number and do %i iteration of the formula [Y/N] :\n", digits, prec, iter);
+	printf("do you want to start calculating pi with an accuraty of %" PRIu64 " digits, using %" PRIu64 " bits per number and do %" PRIu8 " iteration of the formula [Y/N] :\n", digits, prec, iter);
 	fflush(stdout);
 	char ans;
 	scanf("%c", &ans);
@@ -438,13 +438,9 @@ int compare_files(FILE *file1, FILE *file2)
 		// printf("c1: %c \nc2: %c\n", c1, c2);
 
 		if (feof(file1) || feof(file2))
-		{
 			break;
-		}
 		if (c1 != c2)
-		{
 			break;
-		}
 		++counter;
 	}
 	return counter;
@@ -464,7 +460,7 @@ void progress_bar(const char *name, int progress)
 {
 	assert(progress <= 100);
 
-	char spaces[PROG_BAR_DEC + 5];
+	// char spaces[PROG_BAR_DEC + 5];
 	unsigned char nb_spaces = PROG_BAR_DEC - strlen(name);
 
 	printf("\r%s", name);
