@@ -6,11 +6,15 @@
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
+#include <math.h>
 
 #include <gmp.h>
 
 #define __COMMON_IMPLEMENTATION__
 #include "common.h"
+
+#define __HELPER_IMPLEMENTATION__
+#include "helper.h"
 
 // GO TO DIR:
 //     cd C:/Users/Elève/Desktop/document/progra/pihex/base
@@ -37,9 +41,6 @@ reset  \033[0m
 
 //--------------------------------------------------------------------------------------------
 
-void mpf_list_init2(const int prec, mpf_t list[], size_t size);
-void mpf_list_clear(mpf_t list[], size_t size);
-
 void mpf_qtrt(mpf_t rop, mpf_t op);
 void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2);
 
@@ -51,15 +52,6 @@ void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2);
 void mpf_mul_d(mpf_t rop, mpf_t op1, double op2);
 
 //--------------------------------------------------------------------------------------------
-
-#ifdef DEBUG
-#define mpf_debug(format, ...)                              \
-  yellow();                                                 \
-  gmp_printf("[DEBUG] " format __VA_OPT__(, ) __VA_ARGS__); \
-  reset()
-#else
-#define mpf_debug(format, ...)
-#endif
 
 /*
 ITER = 2 : 7
@@ -76,69 +68,11 @@ mpf_t sn, snx, an;
 mpf_t sn_p, snx_p, an_p;
 
 uint64_t digits, prec;
-unsigned char iter;
+uint8_t iter;
 
 int main(void)
 {
-  // getting iter and prec variables
-  //----------------------------------------------------------------
-  printf("Enter the number of digits you want to calculate : ");
-  scanf("%" PRIu64 "%*c", &digits);
-
-  mpf_t prec_temp, tmp;
-  mpf_init2(prec_temp, 1024);
-  mpf_log_ui(prec_temp, digits);
-
-  mpf_init2(tmp, 1024);
-  mpf_log_ui(tmp, 16);
-
-  mpf_div(prec_temp, prec_temp, tmp);
-
-  mpf_clear(tmp);
-
-  // gmp_printf("%Rf\n", prec_temp);
-
-  iter = mpf_get_ui(prec_temp) + 1;
-
-  mpf_set_ui(prec_temp, digits);
-  mpf_mul_d(prec_temp, prec_temp, CONV);
-  prec = mpf_get_ui(prec_temp) + 200;
-
-  assert(iter >= 1);
-
-  mpf_clear(prec_temp);
-
-  // I/O
-  //----------------------------------------------------------------
-  printf("do you want to start calculating pi with an accuraty of %" PRIu64 " digits, using %" PRIu64 " bits per number and do %i iteration of the formula [Y/N] :\n", digits, prec, iter);
-  fflush(stdout);
-  char ans;
-  scanf("%c", &ans);
-  fflush(stdin);
-
-  if (ans != 'y' && ans != 'Y')
-  {
-    printf("terminating the program.");
-    exit(0);
-  }
-
-  // getting time
-  //----------------------------------------------------------------
-  time(&start);
-  struct tm *local = localtime(&start);
-
-  // variables to store the date and time components
-  int hours, minutes, seconds, day, month, year;
-
-  hours = local->tm_hour;       // get hours since midnight (0-23)
-  minutes = local->tm_min;      // get minutes passed after the hour (0-59)
-  seconds = local->tm_sec;      // get seconds passed after a minute (0-59)
-  day = local->tm_mday;         // get day of month (1 to 31)
-  month = local->tm_mon + 1;    // get month of year (0 to 11)
-  year = local->tm_year + 1900; // get year since 1900
-
-  char out_path[1024];
-  sprintf(out_path, "output/pihex-out-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%" PRIu64 ".txt", day, month, year, hours, minutes, seconds, iter, digits);
+  PIHEX_INIT
 
   // setting up my global variables
   //----------------------------------------------------------------
@@ -152,57 +86,39 @@ int main(void)
   mpf_t pi;
   mpf_init2(pi, prec);
 
-  // initialize th value of sn to s1 (sqrt(2) - 1)
+  // initialize the value of sn to s1 (sqrt(2) - 1)
   //----------------------------------
   mpf_sqrt_ui(sn, 2);
   mpf_sub_ui(sn, sn, 1);
 
-  // initialize th value of an to a0 (1/3)
+  // initialize the value of an to a0 (1/3)
   //----------------------------------
   mpf_ui_div_ui(an, 1, 3);
 
   //----------------------------------
 
-  for (int i = 1; i < iter; ++i)
+  for (int i = 1; i <= iter; ++i)
   {
     mpf_snx(i);
 
     mpf_an(i, prec);
 
-    if (i != iter - 1)
+    if (i != iter)
       mpf_sn(i + 1, prec);
   }
 
   printf("\n\n[INFO] main:\n");
 
-  mpf_debug("an: %.100Ff\n", an);
+  printf_debug("an: %.100Ff\n", an);
 
   mpf_ui_div(pi, 1, an);
 
-  FILE *out = open_file_or_panic(out_path, "ab+");
+  FILE *out = open_file_or_panic(out_path_txt, "ab+");
   gmp_fprintf(out, "%.*Ff\n", digits, pi);
 
   fclose(out);
 
-  FILE *correct_pi = open_file_or_panic("pi copy.txt", "r");
-  FILE *our_pi = open_file_or_panic(out_path, "r");
-
-  int correctness = compare_files(our_pi, correct_pi);
-
-  printf("[INFO] %i decimals of pi are correct in the calculations\n", correctness);
-
-  time_t end;
-  time(&end);
-
-  double time_taken = (double)(end - start);
-  printf("[INFO] it took %.0f seconds\n", time_taken);
-
-  fclose(correct_pi);
-  fclose(our_pi);
-
-  mpf_debug("PI = %.100Ff\n", pi);
-
-  printf("[INFO] End\n");
+  PIHEX_END
 
   mpf_clear(pi);
   mpf_clears(sn, snx, an, (mpf_ptr)NULL);
@@ -226,7 +142,7 @@ void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2)
 
 void mpf_sn(int n, mp_bitcnt_t prec)
 {
-  mpf_debug("\n[INFO] S%i\n", n);
+  printf_debug("\n[INFO] S%i\n", n);
 
   assert(n <= iter);
 
@@ -310,17 +226,17 @@ void mpf_sn(int n, mp_bitcnt_t prec)
   mpf_clear(t);
 
   progress_bar(sn_name, 96);
-  mpf_debug("s%i:  %.60Ff\n", n, sn);
+  printf_debug("s%i:  %.60Ff\n", n, sn);
 
   progress_bar(sn_name, 100);
   printf("\n");
 
-  mpf_debug("[INFO] End S%i\n", n);
+  printf_debug("[INFO] End S%i\n", n);
 }
 
 void mpf_snx(int n)
 {
-  mpf_debug("\n[INFO] S%iX\n", n);
+  printf_debug("\n[INFO] S%iX\n", n);
 
   assert(n <= iter);
   assert(n >= 0);
@@ -340,17 +256,17 @@ void mpf_snx(int n)
   progress_bar(snx_name, 50);
 
   mpf_qtrt(snx, snx);
-  mpf_debug("s%ix: %.60Ff\n", n, snx);
+  printf_debug("s%ix: %.60Ff\n", n, snx);
 
   progress_bar(snx_name, 100);
   printf("\n");
 
-  mpf_debug("End S%iX\n", n);
+  printf_debug("End S%iX\n", n);
 }
 
 void mpf_an(int n, mp_bitcnt_t prec)
 {
-  mpf_debug("A%i\n", n);
+  printf_debug("A%i\n", n);
   assert(n <= iter);
 
   if (n <= 0)
@@ -379,7 +295,7 @@ void mpf_an(int n, mp_bitcnt_t prec)
 
   progress_bar(an_name, 12);
 
-  mpf_debug("s%ix: %.60Ff\n", n, snx);
+  printf_debug("s%ix: %.60Ff\n", n, snx);
 
   mpf_add_ui(m1, sn, 1);
   mpf_div(m1, m1, t);
@@ -392,7 +308,7 @@ void mpf_an(int n, mp_bitcnt_t prec)
 
   progress_bar(an_name, 25);
 
-  mpf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, an_p, t, m1, m2);
+  printf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, an_p, t, m1, m2);
 
   mpf_t tmp;
   mpf_init2(tmp, prec);
@@ -403,7 +319,7 @@ void mpf_an(int n, mp_bitcnt_t prec)
   mpf_mul_si(tmp, m2, -12);
   mpf_add(an, tmp, an);
   mpf_add_ui(an, an, 1);
-  mpf_debug("PLUS2: %.60Ff\n", an);
+  printf_debug("PLUS2: %.60Ff\n", an);
 
   progress_bar(an_name, 50);
 
@@ -412,7 +328,7 @@ void mpf_an(int n, mp_bitcnt_t prec)
   mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
   mpf_set_z(tmp, pow);
   mpf_div_ui(tmp, tmp, 3);
-  mpf_debug("PLUS1: %Ff\n", tmp);
+  printf_debug("PLUS1: %Ff\n", tmp);
 
   mpz_clear(pow);
 
@@ -420,27 +336,27 @@ void mpf_an(int n, mp_bitcnt_t prec)
 
   mpf_mul(an, an, tmp);
   mpf_neg(an, an);
-  mpf_debug("PLUS: %.60Ff\n", an);
+  printf_debug("PLUS: %.60Ff\n", an);
 
   progress_bar(an_name, 80);
 
   mpf_mul_ui(tmp, m1, 16);
   mpf_mul(tmp, tmp, an_p);
-  mpf_debug("start: %.60Ff\n", tmp);
+  printf_debug("start: %.60Ff\n", tmp);
 
   progress_bar(an_name, 95);
 
   mpf_sub(an, tmp, an);
-  // mpf_debug("an: %.60Ff\n", an_c[n]);
+  // printf_debug("an: %.60Ff\n", an_c[n]);
 
   mpf_clear(tmp);
   mpf_clears(t, m1, m2, (mpf_ptr)0);
-  mpf_debug("a%i: %.60Ff\n", n, an);
+  printf_debug("a%i: %.60Ff\n", n, an);
 
   progress_bar(an_name, 100);
   printf("\n");
 
-  mpf_debug("End A%i\n", n);
+  printf_debug("End A%i\n", n);
 }
 
 void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2)
@@ -448,7 +364,7 @@ void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2)
   mpf_t tmp;
   mpf_init(tmp);
   mpf_set_si(tmp, op2);
-  mpf_debug("op1 = %.60Ff\n op2 = %.60Ff\n", op1, tmp);
+  printf_debug("op1 = %.60Ff\n op2 = %.60Ff\n", op1, tmp);
   mpf_mul(rop, tmp, op1);
   mpf_clear(tmp);
 }

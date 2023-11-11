@@ -1,9 +1,8 @@
 #include <stdio.h>
-#include <gmp.h>
-#include <mpfr.h>
+#include <math.h>
 
 int main(void)
 {
-	printf("%s\n", mpfr_version);
-	return 0;
+  printf("%f\n", fmod(121.025, 60));
+  return 0;
 }

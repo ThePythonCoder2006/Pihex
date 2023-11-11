@@ -22,25 +22,30 @@ IDIR=include
 
 LFLAGS= -lmpfr -lgmp
 
-mpfr: fast_mpfr
 gmp:  fast_gmp
-
-fast_mpfr: comp_fast_mpfr
-	$(BIN_MPFR)
-fast_gmp: comp_fast_gmp
-	$(BIN_GMP)
-
-plain_mpfr: comp_mpfr
-	$(BIN_MPFR)
-plain_gmp: comp_gmp
-	$(BIN_GMP)
+mpfr: fast_mpfr
 
 all: mpfr gmp
+
+run_mpfr:
+	$(BIN_MPFR)
+run_gmp:
+	$(BIN_GMP)
+
+fast_mpfr: comp_fast_mpfr run_mpfr
+fast_gmp: comp_fast_gmp run_gmp
+
+plain_mpfr: comp_mpfr run_mpfr
+plain_gmp: comp_gmp run_gmp
+
+db_mpfr: comp_db_mpfr run_mpfr
+db_gmp: comp_db_gmp run_gmp
+
 
 comp_fast_mpfr:
 	$(CC) $(SRC_MPFR) -o $(BIN_MPFR) $(CFLAGS) $(FASTFLAGS) -I$(IDIR) $(LFLAGS) 
 comp_fast_gmp:
-	$(CC) $(SRC_GMP) -o $(BIN_GMP) $(CFLAGS) $(FASTFLAGS) -I$(IDIR) -lgmp -lm
+	$(CC) $(SRC_GMP) -o $(BIN_GMP) $(CFLAGS) $(FASTFLAGS) -I$(IDIR) -lgmp
 
 comp_plain_mpfr:
 	$(CC) $(SRC_MPFR) -o $(BIN_MPFR) $(CFLAGS) -I$(IDIR) $(LFLAGS) 

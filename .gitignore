@@ -6,7 +6,8 @@ pi-out.txt
 pi-out.txt
 
 *.exe
+*.stackdump
 
-output/*.txt
+output/*
 
 .vscode
