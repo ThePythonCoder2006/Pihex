@@ -7,14 +7,35 @@
 #ifndef __COMMON__
 #define __COMMON__
 
+#define BUFF_SIZE (1024)
+#define EXT_SIZE (8)
+#define CONV 3.321928
+
+typedef struct hex_computation_s
+{
+  mpf_t sn, snx, an, sn_p, snx_p, an_p, pi, u, t, m1, m2;
+  uint64_t digits;
+  mp_bitcnt_t prec;
+  timer start_timer;
+  char out_base_path[BUFF_SIZE + EXT_SIZE];
+  char out_path_log[BUFF_SIZE + EXT_SIZE];
+  char out_path_txt[BUFF_SIZE + EXT_SIZE];
+  uint8_t iter;
+} hex_computation;
+
 FILE *open_file_or_panic(const char *path, const char *mode);
 int compare_files(FILE *file1, FILE *file2);
-void progress_bar(const char *name, int progress);
+void progress_bar(const char *name, int progress, timer *start_timer);
 
 void yellow(void);
 void reset(void);
 
-extern timer start_timer;
+uint64_t get_num_digits(void);
+uint8_t compute_num_iter(hex_computation *hex);
+uint64_t compute_prec(hex_computation *hex);
+void confirmation_form(hex_computation *hex);
+uint8_t get_file_paths(hex_computation *hex);
+void pi_write_out(char *out_path, hex_computation *hex);
 
 #ifdef DEBUG
 #ifndef mpfr_version
@@ -38,120 +59,11 @@ extern timer start_timer;
 #define printf_debug(format, ...)
 #endif
 
-#ifdef mpfr_version
-#define OUT_FILE_BASE_NAME "pihex-out-mpfr"
-#else
-#define OUT_FILE_BASE_NAME "pihex-out-gmp"
-#endif
-
-#define BUFF_SIZE (1024)
-#define EXT_SIZE (8)
-
-#define PIHEX_INIT                                                            \
-  /* getting iter and prec variables                                          \
-  ----------------------------------------------------------------*/          \
-  printf("Enter the number of digits you want to calculate : ");              \
-  scanf("%" PRIu64 "%*c", &digits);                                           \
-                                                                              \
-  double prec_temp, tmp;                                                      \
-  prec_temp = log(digits);                                                    \
-                                                                              \
-  tmp = log(16);                                                              \
-                                                                              \
-  prec_temp /= tmp;                                                           \
-                                                                              \
-  iter = (uint8_t)(prec_temp) + 1;                                            \
-                                                                              \
-  prec_temp = (uint64_t)digits;                                               \
-  prec_temp *= CONV;                                                          \
-  prec = (uint64_t)round(prec_temp) + 200;                                    \
-                                                                              \
-  assert(iter >= 1);                                                          \
-                                                                              \
-  /* I/O                                                                      \
-  ----------------------------------------------------------------*/          \
-  printf("do you want to start calculating pi with an accuraty of %" PRIu64   \
-         " digits, using %" PRIu64                                            \
-         " bits per number and do %i iteration of the formula [Y/N] :\n",     \
-         digits, prec, iter);                                                 \
-  fflush(stdout);                                                             \
-  char ans;                                                                   \
-  scanf("%c", &ans);                                                          \
-  fflush(stdin);                                                              \
-                                                                              \
-  if (ans != 'y' && ans != 'Y')                                               \
-  {                                                                           \
-    printf("terminating the program.");                                       \
-    exit(0);                                                                  \
-  }                                                                           \
-                                                                              \
-  /* getting time                                                             \
-  ----------------------------------------------------------------*/          \
-  timer_start(&start_timer);                                                  \
-  time_t time_tmp = 0;                                                        \
-  time(&time_tmp);                                                            \
-  struct tm *local = localtime(&time_tmp);                                    \
-                                                                              \
-  /* variables to store the date and time components*/                        \
-  int hours, minutes, seconds, day, month, year;                              \
-                                                                              \
-  hours = local->tm_hour;       /* get hours since midnight (0-23)*/          \
-  minutes = local->tm_min;      /* get minutes passed after the hour (0-59)*/ \
-  seconds = local->tm_sec;      /* get seconds passed after a minute (0-59)*/ \
-  day = local->tm_mday;         /* get day of month (1 to 31)*/               \
-  month = local->tm_mon + 1;    /* get month of year (0 to 11)*/              \
-  year = local->tm_year + 1900; /* get year since 1900*/                      \
-                                                                              \
-  char out_path_no_ext[BUFF_SIZE + EXT_SIZE] = {0};                           \
-  snprintf(out_path_no_ext, BUFF_SIZE,                                        \
-           "output/" OUT_FILE_BASE_NAME                                       \
-           "-%02d-%02d-%d-%02d-%02d-%02d-iter-%i-digits-%" PRIu64,            \
-           day, month, year, hours, minutes, seconds, iter, digits);          \
-                                                                              \
-  char out_path_log[BUFF_SIZE + EXT_SIZE] = {0};                              \
-  strcpy(out_path_log, out_path_no_ext);                                      \
-  strcat(out_path_log, ".log");                                               \
-                                                                              \
-  char *out_path_txt = out_path_no_ext;                                       \
-  strcat(out_path_txt, ".txt");
-
-#define PIHEX_END                                                                             \
-                                                                                              \
-  char correct_pi_path[] = "pi copy.txt";                                                     \
-  FILE *correct_pi = open_file_or_panic(correct_pi_path, "r");                                \
-  FILE *our_pi = open_file_or_panic(out_path_txt, "r");                                       \
-                                                                                              \
-  uint64_t correctness = compare_files(our_pi, correct_pi);                                   \
-                                                                                              \
-  fclose(correct_pi);                                                                         \
-  fclose(our_pi);                                                                             \
-                                                                                              \
-  printf("[INFO] %" PRIu64 " decimals of pi are correct in the calculations\n", correctness); \
-                                                                                              \
-  /* time calculations*/                                                                      \
-  double time_taken = timer_stop(&start_timer);                                               \
-  printf("[INFO] it took %.3f seconds\n", time_taken);                                        \
-                                                                                              \
-  FILE *out_log = open_file_or_panic(out_path_log, "w");                                      \
-                                                                                              \
-  fprintf(out_log, "Calculation of %" PRIu64 " digits of pi\n"                                \
-                   "\n"                                                                       \
-                   "Time taken : %lfs\n"                                                      \
-                   "\n"                                                                       \
-                   "%" PRIu64 " digits of pi coincinded with \"%s\"\n",                       \
-          digits, time_taken, correctness, correct_pi_path);                                  \
-                                                                                              \
-  fclose(out_log);                                                                            \
-                                                                                              \
-  printf_debug("PI = %.100Rf\n", pi);                                                         \
-                                                                                              \
-  printf("[INFO] End\n");
+#define OUT_FILE_BASE_NAME "pihex-out"
 
 #endif //__COMMON__
 
 #ifdef __COMMON_IMPLEMENTATION__
-
-timer start_timer;
 
 FILE *open_file_or_panic(const char *path, const char *mode)
 {
@@ -199,37 +111,158 @@ void reset(void)
 #define PROG_BAR_LEN 25
 #define PROG_BAR_DEC 5
 
-void progress_bar(const char *name, int progress)
+void print_progress_bar(const char *name, float progress, float time)
 {
 #ifndef DEBUG
-  assert(progress <= 100);
+  assert(progress <= 1);
 
   unsigned char nb_spaces = PROG_BAR_DEC - strlen(name);
 
   printf("\r%s", name);
   for (unsigned char i = 0; i < nb_spaces; ++i)
     printf(" ");
-  printf("|");
-  for (unsigned char i = 0; i < progress / (100 / PROG_BAR_LEN); ++i)
+  printf("[");
+  for (unsigned char i = 0; i < progress * PROG_BAR_LEN; ++i)
     printf("#");
-  for (unsigned char i = progress / (100 / PROG_BAR_LEN); i < PROG_BAR_LEN; ++i)
+  for (unsigned char i = progress * PROG_BAR_LEN; i < PROG_BAR_LEN; ++i)
     printf("-");
+
+  float end_ETA_time = time * progress;
+
+  uint32_t end_h, end_m;
+  double end_s;
+
+  end_s = fmod(end_ETA_time, 60);
+  uint32_t quotient = (uint32_t)(time - end_s);
+  end_m = quotient % 60;
+  end_h = quotient / 3600;
 
   uint32_t ex_t_h, ex_t_m;
   double ex_t_s;
 
-  double t = timer_get_time(&start_timer);
-
-  ex_t_s = fmod(t, 60);
-  uint32_t dif_int = (uint32_t)(t - ex_t_s);
+  ex_t_s = fmod(time, 60);
+  uint32_t dif_int = (uint32_t)(time - ex_t_s);
   ex_t_m = dif_int % 60;
   ex_t_h = dif_int / 3600;
 
-  printf("|  %i%% %dh%dm%.3fs", progress, ex_t_h, ex_t_m, ex_t_s);
+  printf("]  %i%% %dh%dm%.1fs/%dh%dm%.1fs (ETA)", (int)(100U * progress),
+         ex_t_h, ex_t_m, ex_t_s,
+         end_h, end_m, end_s);
   fflush(stdout);
 #else
   (void)name, (void)progress;
 #endif
+  return;
+}
+
+uint64_t get_num_digits(void)
+{
+  uint64_t digits;
+  printf("Enter the number of digits you want to calculate : ");
+  scanf("%" PRIu64 "%*c", &digits);
+  return digits;
+}
+
+uint8_t compute_num_iter(hex_computation *hex)
+{
+  uint8_t iter = (uint8_t)(log(hex->digits) / log(16)) + 1;
+  assert(iter >= 1);
+  return iter;
+}
+
+uint64_t compute_prec(hex_computation *hex)
+{
+  return (uint64_t)round(hex->digits * CONV) + 200;
+}
+
+void confirmation_form(hex_computation *hex)
+{
+  printf("do you want to start calculating pi with an accuraty of %" PRIu64
+         " digits, using %" PRIu64
+         " bits per number and do %i iteration of the formula [Y/N] :",
+         hex->digits, (uint64_t)hex->prec, hex->iter);
+  fflush(stdout);
+  char ans;
+  scanf("%c", &ans);
+  fflush(stdin);
+
+  if (ans != 'y' && ans != 'Y')
+  {
+    printf("terminating the program.");
+    exit(0);
+  }
+  return;
+}
+
+uint8_t get_file_paths(hex_computation *hex)
+{
+  time_t time_tmp = 0;
+  time(&time_tmp);
+  struct tm *local = localtime(&time_tmp);
+
+  /* variables to store the date and time components*/
+  int hours, minutes, day, month, year;
+
+  hours = local->tm_hour;       // get hours since midnight (0-23)
+  minutes = local->tm_min;      // get minutes passed after the hour (0-59)
+  day = local->tm_mday;         // get day of month (1 to 31)
+  month = local->tm_mon + 1;    // get month of year (0 to 11)
+  year = local->tm_year + 1900; // get year since 1900
+
+  snprintf(hex->out_base_path, BUFF_SIZE,
+           OUT_FILE_BASE_NAME
+           "-%02d-%02d-%d-%02d-%02d-iter-%i-digits-%" PRIu64,
+           day, month, year, hours, minutes, hex->iter, hex->digits);
+
+  snprintf(hex->out_path_log, BUFF_SIZE, "./output/%s.log", hex->out_base_path);
+  snprintf(hex->out_path_txt, BUFF_SIZE, "./output/%s.txt", hex->out_base_path);
+  return 0;
+}
+
+void end_log(hex_computation *hex)
+{
+  double time_taken = timer_stop(&hex->start_timer);
+  printf("[INFO] the computation took %.3f seconds\n", time_taken);
+
+  FILE *out_log = open_file_or_panic(hex->out_path_log, "w");
+
+  // TODO: rework the correctness princple to function again, as I do not have the old `pi copy.txt` which served as a reference
+
+  /* char correct_pi_path[] = "pi copy.txt";
+   *   FILE *correct_pi = open_file_or_panic(correct_pi_path, "r");
+   *   FILE *our_pi = open_file_or_panic(out_path_txt, "r");
+   *
+   *   uint64_t correctness = compare_files(our_pi, correct_pi);
+   *
+   *   fclose(correct_pi);
+   *   fclose(our_pi);
+   *
+   *   printf("[INFO] %" PRIu64 " decimals of pi are correct in the calculations\n", correctness);
+   */
+  int64_t correctness = -1;
+  char correct_pi_path[] = "";
+  fprintf(out_log, "Calculation of %" PRIu64 " digits of pi\n"
+                   "\n"
+                   "Time taken : %lfs\n"
+                   "\n"
+                   "%" PRId64 " digits of pi coincinded with \"%s\"\n",
+          hex->digits, time_taken, correctness, correct_pi_path);
+
+  fclose(out_log);
+}
+
+void pi_write_out(char *out_path, hex_computation *hex)
+{
+  FILE *out = open_file_or_panic(out_path, "ab+");
+  if (out == NULL)
+  {
+    fprintf(stderr, "[ERROR] Could not open file %s: %s\n", out_path, strerror(errno));
+    return;
+  }
+  gmp_fprintf(out, "%.*Ff\n", hex->digits, hex->pi);
+
+  fclose(out);
+  printf("[INFO] pi was successfully written to %s\n", out_path);
   return;
 }
 

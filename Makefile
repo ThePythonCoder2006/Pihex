@@ -1,61 +1,47 @@
-CC=gcc
+CC := gcc
 
-SRC_DIR=./src
-SRC_GMP_FILE=hex-gmp.c
-SRC_GMP=$(SRC_DIR)/$(SRC_GMP_FILE)
+SRC_DIR := ./src
+SRC_FILE := hex-gmp.c
+SRC := $(SRC_DIR)/$(SRC_FILE)
 
-SRC_MPFR_FILE=hex-mpfr.c
-SRC_MPFR=$(SRC_DIR)/$(SRC_MPFR_FILE)
+BIN_DIR := ./bin
+OUT_FNAME := hex-gmp
+BIN := $(BIN_DIR)/$(OUT_FNAME)
+BIN_DB := $(BIN)_db
 
-BIN_DIR=./bin
-BIN_GMP_FILE=hex-gmp
-BIN_GMP=$(BIN_DIR)/$(BIN_GMP_FILE)
+IDIR := include
 
-BIN_MPFR_FILE=hex-mpfr
-BIN_MPFR=$(BIN_DIR)/$(BIN_MPFR_FILE)
+DBFLAGS := -ggdb
+FASTFLAGS := -O3
+LFLAGS := -lgmp -I$(IDIR)
+CFLAGS := -Wall -Wextra -pedantic $(LFLAGS)
 
-CFLAGS=-Wall -Wextra -pedantic
-DBFLAGS=-ggdb
-FASTFLAGS=-O3
+TIMES_DIR := $(SRC_DIR)/times
+TIMES_SRC := $(SRC_DIR)/process_times.c
+TIMES_BIN := $(BIN_DIR)/process_times
 
-IDIR=include
+.PHONY: all run times
 
-LFLAGS= -lmpfr -lgmp
+all: run times
 
-gmp:  fast_gmp
-mpfr: fast_mpfr
+run: $(BIN) | output times_dir
+	./$<
 
-all: mpfr gmp
+times: $(TIMES_BIN)
+	./$<
 
-run_mpfr:
-	$(BIN_MPFR)
-run_gmp:
-	$(BIN_GMP)
+$(BIN) $(BIN_DB): $(SRC) Makefile | $(BIN_DIR)
 
-fast_mpfr: comp_fast_mpfr run_mpfr
-fast_gmp: comp_fast_gmp run_gmp
+$(BIN):
+	$(CC) $< -o $@ $(CFLAGS) $(FASTFLAGS)
 
-plain_mpfr: comp_mpfr run_mpfr
-plain_gmp: comp_gmp run_gmp
+$(BIN_DB):
+	$(CC) $< -o $@ $(CFLAGS) $(DBFLAGS) -DDEBUG
 
-db_mpfr: comp_db_mpfr run_mpfr
-db_gmp: comp_db_gmp run_gmp
+$(TIMES_BIN): $(TIMES_SRC) Makefile
+	$(CC) $< -o $@ $(CFLAGS)
 
+times_dir: $(TIMES_DIR)/sn $(TIMES_DIR)/snx $(TIMES_DIR)/an
 
-comp_fast_mpfr:
-	$(CC) $(SRC_MPFR) -o $(BIN_MPFR) $(CFLAGS) $(FASTFLAGS) -I$(IDIR) $(LFLAGS) 
-comp_fast_gmp:
-	$(CC) $(SRC_GMP) -o $(BIN_GMP) $(CFLAGS) $(FASTFLAGS) -I$(IDIR) -lgmp
-
-comp_plain_mpfr:
-	$(CC) $(SRC_MPFR) -o $(BIN_MPFR) $(CFLAGS) -I$(IDIR) $(LFLAGS) 
-comp_plain_gmp:
-	$(CC) $(SRC_GMP) -o $(BIN_GMP) $(CFLAGS) -I$(IDIR) -lgmp -lm
-
-comp_db_mpfr:
-	$(CC) $(SRC_MPFR) -o $(BIN_MPFR) $(CFLAGS) $(DBFLAGS) -I$(IDIR) $(LFLAGS) -DDEBUG
-comp_db_gmp:
-	$(CC) $(SRC_GMP) -o $(BIN_GMP) $(CFLAGS) $(DBFLAGS) -I$(IDIR) -lgmp -lm -DDEBUG
-
-test:
-	$(CC) $(SRC_DIR)/test.c -o $(BIN_DIR)/test -I $(IDIR) -L $(LDIR) -lmpfr -lgmp -lm
+$(BIN_DIR) output $(TIMES_DIR)/an $(TIMES_DIR)/snx $(TIMES_DIR)/sn:
+	- @mkdir "$@"

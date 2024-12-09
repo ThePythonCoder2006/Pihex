@@ -9,5 +9,6 @@ pi-out.txt
 *.stackdump
 
 output/*
+src/times/*/*
 
 .vscode

@@ -16,15 +16,8 @@
 #define __HELPER_IMPLEMENTATION__
 #include "helper.h"
 
-// GO TO DIR:
-//     cd C:/Users/Elève/Desktop/document/progra/pihex/base
-// or  cd C:/Users/paul/Desktop/documents/programation/pihex/base
-
-// COMPILE:
-//   gcc -o bin/hex-gmp src/hex-gmp-6.2.1.c -I include -L lib -lgmp -lmpfr
-
-// RUN :
-//   ./bin/hex-gmp
+#define __TIMES_IMPLEMENTATION__
+#include "times.h"
 
 /*
 colors:
@@ -44,9 +37,9 @@ reset  \033[0m
 void mpf_qtrt(mpf_t rop, mpf_t op);
 void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2);
 
-void mpf_sn(int n, mp_bitcnt_t prec);
-void mpf_snx(int n);
-void mpf_an(int n, mp_bitcnt_t prec);
+void mpf_sn(int n, hex_computation *hex);
+void mpf_snx(int n, hex_computation *hex);
+void mpf_an(int n, hex_computation *hex);
 
 void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2);
 void mpf_mul_d(mpf_t rop, mpf_t op1, double op2);
@@ -62,67 +55,67 @@ ITER = 6 : 514770  < 16 * 35700  = 571200
 ITER = 7 : 8200000 ? 16 * 514770 = 8236320
 */
 
-#define CONV 3.321928
-
-mpf_t sn, snx, an;
-mpf_t sn_p, snx_p, an_p;
-
-uint64_t digits, prec;
-uint8_t iter;
-
-int main(void)
+int main(int argc, char **argv)
 {
-  PIHEX_INIT
+  (void)argc, (void)argv;
+
+  hex_computation main = {0};
+
+  main.digits = get_num_digits();
+  main.iter = compute_num_iter(&main);
+  main.prec = compute_prec(&main);
+  confirmation_form(&main);
+
+  get_file_paths(&main);
+
+  timer_start(&main.start_timer);
 
   // setting up my global variables
   //----------------------------------------------------------------
-  mpf_init2(sn, prec);
-  mpf_init2(snx, prec);
-  mpf_init2(an, prec);
-  mpf_init2(sn_p, prec);
-  mpf_init2(snx_p, prec);
-  mpf_init2(an_p, prec);
-
-  mpf_t pi;
-  mpf_init2(pi, prec);
+  mpf_set_default_prec(main.prec);
+  mpf_inits(main.sn, main.snx, main.an, (mpf_ptr)NULL);
+  mpf_inits(main.sn_p, main.snx_p, main.an_p, main.pi, (mpf_ptr)NULL);
+  mpf_inits(main.u, main.t, main.m1, main.m2, (mpf_ptr)NULL);
 
   // initialize the value of sn to s1 (sqrt(2) - 1)
   //----------------------------------
-  mpf_sqrt_ui(sn, 2);
-  mpf_sub_ui(sn, sn, 1);
+  mpf_sqrt_ui(main.sn, 2);
+  mpf_sub_ui(main.sn, main.sn, 1);
 
   // initialize the value of an to a0 (1/3)
   //----------------------------------
-  mpf_ui_div_ui(an, 1, 3);
+  mpf_ui_div_ui(main.an, 1, 3);
 
   //----------------------------------
 
-  for (int i = 1; i <= iter; ++i)
+  for (int i = 1; i <= main.iter; ++i)
   {
-    mpf_snx(i);
+    mpf_snx(i, &main);
 
-    mpf_an(i, prec);
+    mpf_an(i, &main);
 
-    if (i != iter)
-      mpf_sn(i + 1, prec);
+    if (i != main.iter)
+      mpf_sn(i + 1, &main);
   }
 
   printf("\n\n[INFO] main:\n");
 
   printf_debug("an: %.100Ff\n", an);
 
-  mpf_ui_div(pi, 1, an);
+  mpf_ui_div(main.pi, 1, main.an);
 
-  FILE *out = open_file_or_panic(out_path_txt, "ab+");
-  gmp_fprintf(out, "%.*Ff\n", digits, pi);
+  pi_write_out(main.out_path_txt, &main);
 
-  fclose(out);
+  end_log(&main);
 
-  PIHEX_END
+  printf_debug("PI = %.100Rf\n", pi);
 
-  mpf_clear(pi);
-  mpf_clears(sn, snx, an, (mpf_ptr)NULL);
-  mpf_clears(sn_p, snx_p, an_p, (mpf_ptr)NULL);
+  printf("[INFO] End\n");
+
+  mpf_clear(main.pi);
+  mpf_clears(main.sn, main.snx, main.an, (mpf_ptr)NULL);
+  mpf_clears(main.sn_p, main.snx_p, main.an_p, (mpf_ptr)NULL);
+  mpf_clears(main.u, main.t, main.m1, main.m2, (mpf_ptr)NULL);
   return EXIT_SUCCESS; // return 0
 }
 
@@ -140,11 +133,34 @@ void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2)
   mpf_div_ui(rop, rop, op2);
 }
 
-void mpf_sn(int n, mp_bitcnt_t prec)
+// expects "progress" to be an already existing integer in scope, which would start at zero at the start of the function
+#define PB(name, timer, times)                       \
+  *times = (float)timer_get_time(timer);             \
+  print_progress_bar(name, table[progress], *times); \
+  ++times;                                           \
+  ++progress;
+
+void PB_write_out(char *fname, float *times, size_t len)
+{
+  FILE *f = fopen(fname, "wb");
+  if (f == NULL)
+  {
+    fprintf(stderr, "[ERROR] Could not open file %s: %s", fname, strerror(errno));
+    return;
+  }
+  fwrite(&len, sizeof(len), 1, f);
+  fwrite(times, sizeof(times[0]), len, f);
+
+  return;
+}
+
+#define TIMES_LEN 25
+
+void mpf_sn(int n, hex_computation *hex)
 {
   printf_debug("\n[INFO] S%i\n", n);
 
-  assert(n <= iter);
+  assert(n <= hex->iter);
 
   if (n < 1)
   {
@@ -152,122 +168,120 @@ void mpf_sn(int n, mp_bitcnt_t prec)
     exit(EXIT_FAILURE);
   }
 
-  char sn_name[10];
-  sprintf(sn_name, "S%i", n);
+  char name[10];
+  sprintf(name, "S%i", n);
+  float times[TIMES_LEN] = {0.0};
+  float *times_ptr = times;
+  size_t progress = 0;
+  float *table = sn_times;
+  timer exec_time = {0};
+  timer_start(&exec_time);
 
-  progress_bar(sn_name, 0);
-
-  mpf_swap(sn, sn_p); // store the previous sn in the right varial and so frees the
-
-  progress_bar(sn_name, 4);
+  mpf_swap(hex->sn, hex->sn_p); // store the previous sn in the right varial and so frees the
+  PB(name, &exec_time, times_ptr);
 
   // consts --------------
 
-  mpf_t u;
-  mpf_init2(u, prec);
-  progress_bar(sn_name, 8);
-  mpf_mul(u, snx, snx);
-  progress_bar(sn_name, 12);
-  mpf_add_ui(u, u, 1);
-  progress_bar(sn_name, 16);
-  mpf_mul(u, u, snx);
-  progress_bar(sn_name, 20);
-  mpf_mul_ui(u, u, 8);
-  progress_bar(sn_name, 24);
-  mpf_qtrt(u, u);
-  progress_bar(sn_name, 28);
+  mpf_mul(hex->u, hex->snx, hex->snx);
+  PB(name, &exec_time, times_ptr);
+  mpf_add_ui(hex->u, hex->u, 1);
+  PB(name, &exec_time, times_ptr);
+  mpf_mul(hex->u, hex->u, hex->snx);
+  PB(name, &exec_time, times_ptr);
+  mpf_mul_ui(hex->u, hex->u, 8);
+  PB(name, &exec_time, times_ptr);
+  mpf_qtrt(hex->u, hex->u);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_t t;
-  progress_bar(sn_name, 32);
-  mpf_init2(t, prec);
-  progress_bar(sn_name, 36);
-  mpf_add_ui(t, snx, 1);
-  progress_bar(sn_name, 40);
+  mpf_init2(hex->t, hex->prec);
+  PB(name, &exec_time, times_ptr);
+  mpf_add_ui(hex->t, hex->snx, 1);
+  PB(name, &exec_time, times_ptr);
 
   //--------------
 
-  mpf_ui_sub(sn, 1, snx);
-  progress_bar(sn_name, 44);
-  mpf_pow_ui(sn, sn, 4);
-
-  progress_bar(sn_name, 48);
+  mpf_ui_sub(hex->sn, 1, hex->snx);
+  PB(name, &exec_time, times_ptr);
+  mpf_pow_ui(hex->sn, hex->sn, 4);
+  PB(name, &exec_time, times_ptr);
 
   mpf_t mul, tmp;
-  progress_bar(sn_name, 52);
-  mpf_init2(mul, prec);
-  progress_bar(sn_name, 56);
-  mpf_init2(tmp, prec);
+  PB(name, &exec_time, times_ptr);
+  mpf_inits(mul, tmp, (mpf_ptr)NULL);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(sn_name, 60);
-  mpf_add(mul, t, u);
-  progress_bar(sn_name, 64);
+  mpf_add(mul, hex->t, hex->u);
+  PB(name, &exec_time, times_ptr);
   mpf_mul(mul, mul, mul);
-  progress_bar(sn_name, 68);
-  mpf_div(sn, sn, mul);
+  PB(name, &exec_time, times_ptr);
+  mpf_div(hex->sn, hex->sn, mul);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(sn_name, 72);
-
-  mpf_mul(tmp, u, u);
-  progress_bar(sn_name, 76);
-  mpf_mul(mul, t, t);
-  progress_bar(sn_name, 80);
+  mpf_mul(tmp, hex->u, hex->u);
+  PB(name, &exec_time, times_ptr);
+  mpf_mul(mul, hex->t, hex->t);
+  PB(name, &exec_time, times_ptr);
   mpf_add(mul, mul, tmp);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(sn_name, 84);
-
-  mpf_div(sn, sn, mul);
-
-  progress_bar(sn_name, 88);
+  mpf_div(hex->sn, hex->sn, mul);
+  PB(name, &exec_time, times_ptr);
   mpf_clears(mul, tmp, (mpf_ptr)0);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(sn_name, 92);
-  //--------------
-  mpf_clear(u);
-  mpf_clear(t);
-
-  progress_bar(sn_name, 96);
   printf_debug("s%i:  %.60Ff\n", n, sn);
 
-  progress_bar(sn_name, 100);
   printf("\n");
+
+  char out_path[BUFF_SIZE] = {0};
+  snprintf(out_path, BUFF_SIZE, "./src/times/sn/%s-%s-times.bin", hex->out_base_path, name);
+  PB_write_out(out_path, times, progress);
 
   printf_debug("[INFO] End S%i\n", n);
 }
 
-void mpf_snx(int n)
+void mpf_snx(int n, hex_computation *hex)
 {
   printf_debug("\n[INFO] S%iX\n", n);
 
-  assert(n <= iter);
+  assert(n <= hex->iter);
   assert(n >= 0);
 
-  char snx_name[10];
-  sprintf(snx_name, "S%iX", n);
+  char name[10];
+  sprintf(name, "S%iX", n);
+  float times[100] = {0.0};
+  float *times_ptr = times;
+  size_t progress = 0;
+  float *table = snx_times;
+  timer exec_time;
+  timer_start(&exec_time);
 
-  progress_bar(snx_name, 0);
+  mpf_swap(hex->snx, hex->snx_p);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_swap(snx, snx_p);
+  mpf_pow_ui(hex->snx, hex->sn, 4);
+  PB(name, &exec_time, times_ptr);
+  mpf_ui_sub(hex->snx, 1, hex->snx);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(snx_name, 5);
+  mpf_qtrt(hex->snx, hex->snx);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_pow_ui(snx, sn, 4);
-  mpf_ui_sub(snx, 1, snx);
+  printf_debug("s%ix: %.60Ff\n", n, hex->snx);
 
-  progress_bar(snx_name, 50);
-
-  mpf_qtrt(snx, snx);
-  printf_debug("s%ix: %.60Ff\n", n, snx);
-
-  progress_bar(snx_name, 100);
   printf("\n");
+
+  char out_path[BUFF_SIZE] = {0};
+  snprintf(out_path, BUFF_SIZE, "./src/times/snx/%s-%s-times.bin", hex->out_base_path, name);
+  PB_write_out(out_path, times, progress);
 
   printf_debug("End S%iX\n", n);
 }
 
-void mpf_an(int n, mp_bitcnt_t prec)
+void mpf_an(int n, hex_computation *hex)
 {
   printf_debug("A%i\n", n);
-  assert(n <= iter);
+  assert(n <= hex->iter);
 
   if (n <= 0)
   {
@@ -275,86 +289,93 @@ void mpf_an(int n, mp_bitcnt_t prec)
     exit(EXIT_FAILURE); // exit(1)
   }
 
-  char an_name[10];
-  sprintf(an_name, "A%i", n);
+  char name[10];
+  sprintf(name, "A%i", n);
+  float times[100] = {0.0};
+  float *times_ptr = times;
+  size_t progress = 0;
+  float *table = an_times;
+  timer exec_time;
+  timer_start(&exec_time);
 
-  progress_bar(an_name, 0);
+  mpf_swap(hex->an, hex->an_p);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_swap(an, an_p);
+  mpf_add_ui(hex->t, hex->snx, 1);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(an_name, 5);
+  printf_debug("s%ix: %.60Ff\n", n, hex->snx);
 
-  mpf_t t, m1, m2;
-  mpf_init2(t, prec);
-  mpf_init2(m1, prec);
-  mpf_init2(m2, prec);
+  mpf_add_ui(hex->m1, hex->sn, 1);
+  PB(name, &exec_time, times_ptr);
+  mpf_div(hex->m1, hex->m1, hex->t);
+  PB(name, &exec_time, times_ptr);
+  mpf_pow_ui(hex->m1, hex->m1, 4);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(an_name, 10);
+  mpf_pow_ui(hex->m2, hex->t, 4);
+  PB(name, &exec_time, times_ptr);
+  mpf_ui_div(hex->m2, 1, hex->m2);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_add_ui(t, snx, 1);
-
-  progress_bar(an_name, 12);
-
-  printf_debug("s%ix: %.60Ff\n", n, snx);
-
-  mpf_add_ui(m1, sn, 1);
-  mpf_div(m1, m1, t);
-  mpf_pow_ui(m1, m1, 4);
-
-  progress_bar(an_name, 20);
-
-  mpf_pow_ui(m2, t, 4);
-  mpf_ui_div(m2, 1, m2);
-
-  progress_bar(an_name, 25);
-
-  printf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, an_p, t, m1, m2);
+  printf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, hex->an_p, hex->t, hex->m1, hex->m2);
 
   mpf_t tmp;
-  mpf_init2(tmp, prec);
+  mpf_init2(tmp, hex->prec);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(an_name, 30);
+  mpf_mul_si(hex->an, hex->m1, -4);
+  PB(name, &exec_time, times_ptr);
+  mpf_mul_si(tmp, hex->m2, -12);
+  PB(name, &exec_time, times_ptr);
+  mpf_add(hex->an, tmp, hex->an);
+  PB(name, &exec_time, times_ptr);
+  mpf_add_ui(hex->an, hex->an, 1);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_mul_si(an, m1, -4);
-  mpf_mul_si(tmp, m2, -12);
-  mpf_add(an, tmp, an);
-  mpf_add_ui(an, an, 1);
-  printf_debug("PLUS2: %.60Ff\n", an);
-
-  progress_bar(an_name, 50);
+  printf_debug("PLUS2: %.60Ff\n", hex->an);
 
   mpz_t pow;
   mpz_init(pow);
+  PB(name, &exec_time, times_ptr);
   mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
+  PB(name, &exec_time, times_ptr);
   mpf_set_z(tmp, pow);
+  PB(name, &exec_time, times_ptr);
   mpf_div_ui(tmp, tmp, 3);
+  PB(name, &exec_time, times_ptr);
   printf_debug("PLUS1: %Ff\n", tmp);
 
   mpz_clear(pow);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(an_name, 65);
+  mpf_mul(hex->an, hex->an, tmp);
+  PB(name, &exec_time, times_ptr);
+  mpf_neg(hex->an, hex->an);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_mul(an, an, tmp);
-  mpf_neg(an, an);
   printf_debug("PLUS: %.60Ff\n", an);
 
-  progress_bar(an_name, 80);
+  mpf_mul_ui(tmp, hex->m1, 16);
+  PB(name, &exec_time, times_ptr);
+  mpf_mul(tmp, tmp, hex->an_p);
+  PB(name, &exec_time, times_ptr);
 
-  mpf_mul_ui(tmp, m1, 16);
-  mpf_mul(tmp, tmp, an_p);
   printf_debug("start: %.60Ff\n", tmp);
 
-  progress_bar(an_name, 95);
-
-  mpf_sub(an, tmp, an);
-  // printf_debug("an: %.60Ff\n", an_c[n]);
+  mpf_sub(hex->an, tmp, hex->an);
+  PB(name, &exec_time, times_ptr);
 
   mpf_clear(tmp);
-  mpf_clears(t, m1, m2, (mpf_ptr)0);
-  printf_debug("a%i: %.60Ff\n", n, an);
+  PB(name, &exec_time, times_ptr);
 
-  progress_bar(an_name, 100);
+  printf_debug("a%i: %.60Ff\n", n, hex->an);
+
   printf("\n");
+
+  char out_path[BUFF_SIZE] = {0};
+  snprintf(out_path, BUFF_SIZE, "./src/times/an/%s-%s-times.bin", hex->out_base_path, name);
+  PB_write_out(out_path, times, progress);
 
   printf_debug("End A%i\n", n);
 }
