@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "gmp.h"
 #include "helper.h"
 
 #ifndef __COMMON__
@@ -127,13 +128,17 @@ void print_progress_bar(const char *name, float progress, float time)
   for (unsigned char i = progress * PROG_BAR_LEN; i < PROG_BAR_LEN; ++i)
     printf("-");
 
-  float end_ETA_time = time * progress;
+  float end_ETA_time = 0;
+  if (progress != 0)
+    end_ETA_time = time / progress;
+
+  // printf("%f\n", end_ETA_time);
 
   uint32_t end_h, end_m;
   double end_s;
 
   end_s = fmod(end_ETA_time, 60);
-  uint32_t quotient = (uint32_t)(time - end_s);
+  uint32_t quotient = (uint32_t)(end_ETA_time - end_s);
   end_m = quotient % 60;
   end_h = quotient / 3600;
 

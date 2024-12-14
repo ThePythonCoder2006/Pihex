@@ -19,6 +19,8 @@
 #define __TIMES_IMPLEMENTATION__
 #include "times.h"
 
+#include "logging.h"
+
 /*
 colors:
 Black  \033[0;30m
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
 
   printf("\n\n[INFO] main:\n");
 
-  printf_debug("an: %.100Ff\n", an);
+  printf_debug("an: %.100Ff\n", main.an);
 
   mpf_ui_div(main.pi, 1, main.an);
 
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
 
   end_log(&main);
 
-  printf_debug("PI = %.100Rf\n", pi);
+  printf_debug("PI = %.100Rf\n", main.pi);
 
   printf("[INFO] End\n");
 
@@ -182,54 +184,35 @@ void mpf_sn(int n, hex_computation *hex)
 
   // consts --------------
 
-  mpf_mul(hex->u, hex->snx, hex->snx);
-  PB(name, &exec_time, times_ptr);
-  mpf_add_ui(hex->u, hex->u, 1);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul(hex->u, hex->u, hex->snx);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul_ui(hex->u, hex->u, 8);
-  PB(name, &exec_time, times_ptr);
-  mpf_qtrt(hex->u, hex->u);
-  PB(name, &exec_time, times_ptr);
+  __mpf_mul(hex->u, hex->snx, hex->snx);
+  __mpf_add_ui(hex->u, hex->u, 1);
+  __mpf_mul(hex->u, hex->u, hex->snx);
+  __mpf_mul_ui(hex->u, hex->u, 8);
+  __mpf_qtrt(hex->u, hex->u);
 
-  mpf_init2(hex->t, hex->prec);
-  PB(name, &exec_time, times_ptr);
-  mpf_add_ui(hex->t, hex->snx, 1);
-  PB(name, &exec_time, times_ptr);
+  __mpf_init2(hex->t, hex->prec);
+  __mpf_add_ui(hex->t, hex->snx, 1);
 
   //--------------
 
-  mpf_ui_sub(hex->sn, 1, hex->snx);
-  PB(name, &exec_time, times_ptr);
-  mpf_pow_ui(hex->sn, hex->sn, 4);
-  PB(name, &exec_time, times_ptr);
+  __mpf_ui_sub(hex->sn, 1, hex->snx);
+  __mpf_pow_ui(hex->sn, hex->sn, 4);
 
   mpf_t mul, tmp;
-  PB(name, &exec_time, times_ptr);
-  mpf_inits(mul, tmp, (mpf_ptr)NULL);
-  PB(name, &exec_time, times_ptr);
+  __mpf_inits(mul, tmp, (mpf_ptr)NULL);
 
-  mpf_add(mul, hex->t, hex->u);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul(mul, mul, mul);
-  PB(name, &exec_time, times_ptr);
-  mpf_div(hex->sn, hex->sn, mul);
-  PB(name, &exec_time, times_ptr);
+  __mpf_add(mul, hex->t, hex->u);
+  __mpf_mul(mul, mul, mul);
+  __mpf_div(hex->sn, hex->sn, mul);
 
-  mpf_mul(tmp, hex->u, hex->u);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul(mul, hex->t, hex->t);
-  PB(name, &exec_time, times_ptr);
-  mpf_add(mul, mul, tmp);
-  PB(name, &exec_time, times_ptr);
+  __mpf_mul(tmp, hex->u, hex->u);
+  __mpf_mul(mul, hex->t, hex->t);
+  __mpf_add(mul, mul, tmp);
 
-  mpf_div(hex->sn, hex->sn, mul);
-  PB(name, &exec_time, times_ptr);
-  mpf_clears(mul, tmp, (mpf_ptr)0);
-  PB(name, &exec_time, times_ptr);
+  __mpf_div(hex->sn, hex->sn, mul);
+  __mpf_clears(mul, tmp, (mpf_ptr)0);
 
-  printf_debug("s%i:  %.60Ff\n", n, sn);
+  printf_debug("s%i:  %.60Ff\n", n, hex->sn);
 
   printf("\n");
 
@@ -256,16 +239,12 @@ void mpf_snx(int n, hex_computation *hex)
   timer exec_time;
   timer_start(&exec_time);
 
-  mpf_swap(hex->snx, hex->snx_p);
-  PB(name, &exec_time, times_ptr);
+  __mpf_swap(hex->snx, hex->snx_p);
 
-  mpf_pow_ui(hex->snx, hex->sn, 4);
-  PB(name, &exec_time, times_ptr);
-  mpf_ui_sub(hex->snx, 1, hex->snx);
-  PB(name, &exec_time, times_ptr);
+  __mpf_pow_ui(hex->snx, hex->sn, 4);
+  __mpf_ui_sub(hex->snx, 1, hex->snx);
 
-  mpf_qtrt(hex->snx, hex->snx);
-  PB(name, &exec_time, times_ptr);
+  __mpf_qtrt(hex->snx, hex->snx);
 
   printf_debug("s%ix: %.60Ff\n", n, hex->snx);
 
@@ -298,25 +277,18 @@ void mpf_an(int n, hex_computation *hex)
   timer exec_time;
   timer_start(&exec_time);
 
-  mpf_swap(hex->an, hex->an_p);
-  PB(name, &exec_time, times_ptr);
+  __mpf_swap(hex->an, hex->an_p);
 
-  mpf_add_ui(hex->t, hex->snx, 1);
-  PB(name, &exec_time, times_ptr);
+  __mpf_add_ui(hex->t, hex->snx, 1);
 
   printf_debug("s%ix: %.60Ff\n", n, hex->snx);
 
-  mpf_add_ui(hex->m1, hex->sn, 1);
-  PB(name, &exec_time, times_ptr);
-  mpf_div(hex->m1, hex->m1, hex->t);
-  PB(name, &exec_time, times_ptr);
-  mpf_pow_ui(hex->m1, hex->m1, 4);
-  PB(name, &exec_time, times_ptr);
+  __mpf_add_ui(hex->m1, hex->sn, 1);
+  __mpf_div(hex->m1, hex->m1, hex->t);
+  __mpf_pow_ui(hex->m1, hex->m1, 4);
 
-  mpf_pow_ui(hex->m2, hex->t, 4);
-  PB(name, &exec_time, times_ptr);
-  mpf_ui_div(hex->m2, 1, hex->m2);
-  PB(name, &exec_time, times_ptr);
+  __mpf_pow_ui(hex->m2, hex->t, 4);
+  __mpf_ui_div(hex->m2, 1, hex->m2);
 
   printf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, hex->an_p, hex->t, hex->m1, hex->m2);
 
@@ -324,50 +296,34 @@ void mpf_an(int n, hex_computation *hex)
   mpf_init2(tmp, hex->prec);
   PB(name, &exec_time, times_ptr);
 
-  mpf_mul_si(hex->an, hex->m1, -4);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul_si(tmp, hex->m2, -12);
-  PB(name, &exec_time, times_ptr);
-  mpf_add(hex->an, tmp, hex->an);
-  PB(name, &exec_time, times_ptr);
-  mpf_add_ui(hex->an, hex->an, 1);
-  PB(name, &exec_time, times_ptr);
+  __mpf_mul_si(hex->an, hex->m1, -4);
+  __mpf_mul_si(tmp, hex->m2, -12);
+  __mpf_add(hex->an, tmp, hex->an);
+  __mpf_add_ui(hex->an, hex->an, 1);
 
   printf_debug("PLUS2: %.60Ff\n", hex->an);
 
   mpz_t pow;
-  mpz_init(pow);
-  PB(name, &exec_time, times_ptr);
-  mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
-  PB(name, &exec_time, times_ptr);
-  mpf_set_z(tmp, pow);
-  PB(name, &exec_time, times_ptr);
-  mpf_div_ui(tmp, tmp, 3);
-  PB(name, &exec_time, times_ptr);
+  __mpz_init(pow);
+  __mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
+  __mpf_set_z(tmp, pow);
+  __mpf_div_ui(tmp, tmp, 3);
   printf_debug("PLUS1: %Ff\n", tmp);
 
-  mpz_clear(pow);
-  PB(name, &exec_time, times_ptr);
+  __mpz_clear(pow);
 
-  mpf_mul(hex->an, hex->an, tmp);
-  PB(name, &exec_time, times_ptr);
-  mpf_neg(hex->an, hex->an);
-  PB(name, &exec_time, times_ptr);
+  __mpf_mul(hex->an, hex->an, tmp);
+  __mpf_neg(hex->an, hex->an);
 
-  printf_debug("PLUS: %.60Ff\n", an);
+  printf_debug("PLUS: %.60Ff\n", hex->an);
 
-  mpf_mul_ui(tmp, hex->m1, 16);
-  PB(name, &exec_time, times_ptr);
-  mpf_mul(tmp, tmp, hex->an_p);
-  PB(name, &exec_time, times_ptr);
+  __mpf_mul_ui(tmp, hex->m1, 16);
+  __mpf_mul(tmp, tmp, hex->an_p);
 
   printf_debug("start: %.60Ff\n", tmp);
 
-  mpf_sub(hex->an, tmp, hex->an);
-  PB(name, &exec_time, times_ptr);
-
-  mpf_clear(tmp);
-  PB(name, &exec_time, times_ptr);
+  __mpf_sub(hex->an, tmp, hex->an);
+  __mpf_clear(tmp);
 
   printf_debug("a%i: %.60Ff\n", n, hex->an);
 
