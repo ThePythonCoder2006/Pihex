@@ -6,7 +6,7 @@
 
 #define MAX_LEN 23
 #define AN_LEN 23
-#define SN_LEN 20
+#define SN_LEN 19
 #define SNX_LEN 4
 
 int compute_averages(char *dirpath, float percent_averages[MAX_LEN], float difference_averages[MAX_LEN]);

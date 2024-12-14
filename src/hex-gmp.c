@@ -36,15 +36,9 @@ reset  \033[0m
 
 //--------------------------------------------------------------------------------------------
 
-void mpf_qtrt(mpf_t rop, mpf_t op);
-void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2);
-
 void mpf_sn(int n, hex_computation *hex);
 void mpf_snx(int n, hex_computation *hex);
 void mpf_an(int n, hex_computation *hex);
-
-void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2);
-void mpf_mul_d(mpf_t rop, mpf_t op1, double op2);
 
 //--------------------------------------------------------------------------------------------
 
@@ -63,30 +57,7 @@ int main(int argc, char **argv)
 
   hex_computation main = {0};
 
-  main.digits = get_num_digits();
-  main.iter = compute_num_iter(&main);
-  main.prec = compute_prec(&main);
-  confirmation_form(&main);
-
-  get_file_paths(&main);
-
-  timer_start(&main.start_timer);
-
-  // setting up my global variables
-  //----------------------------------------------------------------
-  mpf_set_default_prec(main.prec);
-  mpf_inits(main.sn, main.snx, main.an, (mpf_ptr)NULL);
-  mpf_inits(main.sn_p, main.snx_p, main.an_p, main.pi, (mpf_ptr)NULL);
-  mpf_inits(main.u, main.t, main.m1, main.m2, (mpf_ptr)NULL);
-
-  // initialize the value of sn to s1 (sqrt(2) - 1)
-  //----------------------------------
-  mpf_sqrt_ui(main.sn, 2);
-  mpf_sub_ui(main.sn, main.sn, 1);
-
-  // initialize the value of an to a0 (1/3)
-  //----------------------------------
-  mpf_ui_div_ui(main.an, 1, 3);
+  init_hex(&main);
 
   //----------------------------------
 
@@ -114,26 +85,12 @@ int main(int argc, char **argv)
 
   printf("[INFO] End\n");
 
-  mpf_clear(main.pi);
-  mpf_clears(main.sn, main.snx, main.an, (mpf_ptr)NULL);
-  mpf_clears(main.sn_p, main.snx_p, main.an_p, (mpf_ptr)NULL);
-  mpf_clears(main.u, main.t, main.m1, main.m2, (mpf_ptr)NULL);
+  clear_hex(&main);
+
   return EXIT_SUCCESS; // return 0
 }
 
 //--------------------------------------------------------------------------------------------
-
-void mpf_qtrt(mpf_t rop, mpf_t op)
-{
-  mpf_sqrt(rop, op);
-  mpf_sqrt(rop, rop);
-}
-
-void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2)
-{
-  mpf_set_ui(rop, op1);
-  mpf_div_ui(rop, rop, op2);
-}
 
 // expects "progress" to be an already existing integer in scope, which would start at zero at the start of the function
 #define PB(name, timer, times)                       \
@@ -141,20 +98,6 @@ void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2)
   print_progress_bar(name, table[progress], *times); \
   ++times;                                           \
   ++progress;
-
-void PB_write_out(char *fname, float *times, size_t len)
-{
-  FILE *f = fopen(fname, "wb");
-  if (f == NULL)
-  {
-    fprintf(stderr, "[ERROR] Could not open file %s: %s", fname, strerror(errno));
-    return;
-  }
-  fwrite(&len, sizeof(len), 1, f);
-  fwrite(times, sizeof(times[0]), len, f);
-
-  return;
-}
 
 #define TIMES_LEN 25
 
@@ -190,7 +133,7 @@ void mpf_sn(int n, hex_computation *hex)
   __mpf_mul_ui(hex->u, hex->u, 8);
   __mpf_qtrt(hex->u, hex->u);
 
-  __mpf_init2(hex->t, hex->prec);
+  __mpf_init(hex->t);
   __mpf_add_ui(hex->t, hex->snx, 1);
 
   //--------------
@@ -198,19 +141,19 @@ void mpf_sn(int n, hex_computation *hex)
   __mpf_ui_sub(hex->sn, 1, hex->snx);
   __mpf_pow_ui(hex->sn, hex->sn, 4);
 
-  mpf_t mul, tmp;
-  __mpf_inits(mul, tmp, (mpf_ptr)NULL);
+  mpf_t mul;
+  __mpf_init(mul);
 
   __mpf_add(mul, hex->t, hex->u);
   __mpf_mul(mul, mul, mul);
   __mpf_div(hex->sn, hex->sn, mul);
 
-  __mpf_mul(tmp, hex->u, hex->u);
+  __mpf_mul(hex->tmp, hex->u, hex->u);
   __mpf_mul(mul, hex->t, hex->t);
-  __mpf_add(mul, mul, tmp);
+  __mpf_add(mul, mul, hex->tmp);
 
   __mpf_div(hex->sn, hex->sn, mul);
-  __mpf_clears(mul, tmp, (mpf_ptr)0);
+  __mpf_clear(mul);
 
   printf_debug("s%i:  %.60Ff\n", n, hex->sn);
 
@@ -292,13 +235,11 @@ void mpf_an(int n, hex_computation *hex)
 
   printf_debug("a%i: %.60Ff\nt : %.60Ff\nm1 : %.60Ff\nm2 : %.60Ff\n", n - 1, hex->an_p, hex->t, hex->m1, hex->m2);
 
-  mpf_t tmp;
-  mpf_init2(tmp, hex->prec);
   PB(name, &exec_time, times_ptr);
 
-  __mpf_mul_si(hex->an, hex->m1, -4);
-  __mpf_mul_si(tmp, hex->m2, -12);
-  __mpf_add(hex->an, tmp, hex->an);
+  __mpf_mul_si(hex->an, hex->m1, -4, hex);
+  __mpf_mul_si(hex->tmp, hex->m2, -12, hex);
+  __mpf_add(hex->an, hex->tmp, hex->an);
   __mpf_add_ui(hex->an, hex->an, 1);
 
   printf_debug("PLUS2: %.60Ff\n", hex->an);
@@ -306,24 +247,23 @@ void mpf_an(int n, hex_computation *hex)
   mpz_t pow;
   __mpz_init(pow);
   __mpz_ui_pow_ui(pow, 4, (2 * n) - 1);
-  __mpf_set_z(tmp, pow);
-  __mpf_div_ui(tmp, tmp, 3);
-  printf_debug("PLUS1: %Ff\n", tmp);
+  __mpf_set_z(hex->tmp, pow);
+  __mpf_div_ui(hex->tmp, hex->tmp, 3);
+  printf_debug("PLUS1: %Ff\n", hex->tmp);
 
   __mpz_clear(pow);
 
-  __mpf_mul(hex->an, hex->an, tmp);
+  __mpf_mul(hex->an, hex->an, hex->tmp);
   __mpf_neg(hex->an, hex->an);
 
   printf_debug("PLUS: %.60Ff\n", hex->an);
 
-  __mpf_mul_ui(tmp, hex->m1, 16);
-  __mpf_mul(tmp, tmp, hex->an_p);
+  __mpf_mul_ui(hex->tmp, hex->m1, 16);
+  __mpf_mul(hex->tmp, hex->tmp, hex->an_p);
 
-  printf_debug("start: %.60Ff\n", tmp);
+  printf_debug("start: %.60Ff\n", hex->tmp);
 
-  __mpf_sub(hex->an, tmp, hex->an);
-  __mpf_clear(tmp);
+  __mpf_sub(hex->an, hex->tmp, hex->an);
 
   printf_debug("a%i: %.60Ff\n", n, hex->an);
 
@@ -334,23 +274,4 @@ void mpf_an(int n, hex_computation *hex)
   PB_write_out(out_path, times, progress);
 
   printf_debug("End A%i\n", n);
-}
-
-void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2)
-{
-  mpf_t tmp;
-  mpf_init(tmp);
-  mpf_set_si(tmp, op2);
-  printf_debug("op1 = %.60Ff\n op2 = %.60Ff\n", op1, tmp);
-  mpf_mul(rop, tmp, op1);
-  mpf_clear(tmp);
-}
-
-void mpf_mul_d(mpf_t rop, mpf_t op1, double op2)
-{
-  mpf_t tmp;
-  mpf_init(tmp);
-  mpf_set_d(tmp, op2);
-  mpf_mul(rop, op1, tmp);
-  mpf_clear(tmp);
 }

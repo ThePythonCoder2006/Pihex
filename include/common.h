@@ -14,9 +14,9 @@
 
 typedef struct hex_computation_s
 {
-  mpf_t sn, snx, an, sn_p, snx_p, an_p, pi, u, t, m1, m2;
+  mpf_t sn, snx, an, sn_p, snx_p, an_p;
+  mpf_t pi, u, t, m1, m2, tmp;
   uint64_t digits;
-  mp_bitcnt_t prec;
   timer start_timer;
   char out_base_path[BUFF_SIZE + EXT_SIZE];
   char out_path_log[BUFF_SIZE + EXT_SIZE];
@@ -37,6 +37,13 @@ uint64_t compute_prec(hex_computation *hex);
 void confirmation_form(hex_computation *hex);
 uint8_t get_file_paths(hex_computation *hex);
 void pi_write_out(char *out_path, hex_computation *hex);
+void init_hex(hex_computation *hex);
+void clear_hex(hex_computation *hex);
+
+void mpf_qtrt(mpf_t rop, mpf_t op);
+void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2);
+void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2, hex_computation *hex);
+void mpf_mul_d(mpf_t rop, mpf_t op1, double op2, hex_computation *hex);
 
 #ifdef DEBUG
 #ifndef mpfr_version
@@ -185,7 +192,7 @@ void confirmation_form(hex_computation *hex)
   printf("do you want to start calculating pi with an accuraty of %" PRIu64
          " digits, using %" PRIu64
          " bits per number and do %i iteration of the formula [Y/N] :",
-         hex->digits, (uint64_t)hex->prec, hex->iter);
+         hex->digits, (uint64_t)mpf_get_default_prec(), hex->iter);
   fflush(stdout);
   char ans;
   scanf("%c", &ans);
@@ -269,6 +276,80 @@ void pi_write_out(char *out_path, hex_computation *hex)
   fclose(out);
   printf("[INFO] pi was successfully written to %s\n", out_path);
   return;
+}
+
+void init_hex(hex_computation *hex)
+{
+  hex->digits = get_num_digits();
+  hex->iter = compute_num_iter(hex);
+  mpf_set_default_prec(compute_prec(hex));
+  confirmation_form(hex);
+
+  get_file_paths(hex);
+
+  timer_start(&hex->start_timer);
+
+  // setting up global variables
+  //----------------------------------------------------------------
+  mpf_inits(hex->sn, hex->snx, hex->an, (mpf_ptr)NULL);
+  mpf_inits(hex->sn_p, hex->snx_p, hex->an_p, hex->pi, (mpf_ptr)NULL);
+  mpf_inits(hex->u, hex->t, hex->m1, hex->m2, hex->tmp, (mpf_ptr)NULL);
+
+  // initialize the values of sn and an
+  //----------------------------------
+  mpf_sqrt_ui(hex->sn, 2);
+  mpf_sub_ui(hex->sn, hex->sn, 1);
+
+  mpf_ui_div_ui(hex->an, 1, 3);
+  return;
+}
+
+void clear_hex(hex_computation *hex)
+{
+  mpf_clear(hex->pi);
+  mpf_clears(hex->sn, hex->snx, hex->an, (mpf_ptr)NULL);
+  mpf_clears(hex->sn_p, hex->snx_p, hex->an_p, (mpf_ptr)NULL);
+  mpf_clears(hex->u, hex->t, hex->m1, hex->m2, hex->tmp, (mpf_ptr)NULL);
+  return;
+}
+
+void PB_write_out(char *fname, float *times, size_t len)
+{
+  FILE *f = fopen(fname, "wb");
+  if (f == NULL)
+  {
+    fprintf(stderr, "[ERROR] Could not open file %s: %s", fname, strerror(errno));
+    return;
+  }
+  fwrite(&len, sizeof(len), 1, f);
+  fwrite(times, sizeof(times[0]), len, f);
+
+  return;
+}
+
+void mpf_mul_si(mpf_t rop, mpf_t op1, signed long int op2, hex_computation *hex)
+{
+  mpf_set_si(hex->tmp, op2);
+  printf_debug("op1 = %.60Ff\n op2 = %.60Ff\n", op1, tmp);
+  mpf_mul(rop, hex->tmp, op1);
+}
+
+void mpf_mul_d(mpf_t rop, mpf_t op1, double op2, hex_computation *hex)
+{
+  mpf_set_d(hex->tmp, op2);
+  mpf_mul(rop, op1, hex->tmp);
+}
+
+void mpf_qtrt(mpf_t rop, mpf_t op)
+{
+  mpf_sqrt(rop, op);
+  mpf_sqrt(rop, rop);
+}
+
+void mpf_ui_div_ui(mpf_t rop, unsigned int op1, unsigned int op2)
+{
+  mpf_set_ui(rop, op1);
+  mpf_div_ui(rop, rop, op2);
 }
 
 #endif
