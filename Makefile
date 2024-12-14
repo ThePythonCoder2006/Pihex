@@ -8,6 +8,7 @@ BIN_DIR := ./bin
 OUT_FNAME := hex-gmp
 BIN := $(BIN_DIR)/$(OUT_FNAME)
 BIN_DB := $(BIN)_db
+BIN_ALT := $(BIN)_alt
 
 IDIR := include
 
@@ -24,11 +25,18 @@ TIMES_BIN := $(BIN_DIR)/process_times
 
 all: run times
 
-run: $(BIN) | output times_dir
+run: $(BIN)
+db: $(BIN_DB) | output times_dir
+native_db: native_db_setup db
+
+run: | output times_dir
 	./$<
 
 times: $(TIMES_BIN)
 	./$<
+
+native_db_setup:
+	$(eval "DBFLAGS += -DDEBUG")
 
 $(BIN) $(BIN_DB): $(SRC) Makefile | $(BIN_DIR)
 
@@ -36,7 +44,7 @@ $(BIN):
 	$(CC) $< -o $@ $(CFLAGS) $(FASTFLAGS)
 
 $(BIN_DB):
-	$(CC) $< -o $@ $(CFLAGS) $(DBFLAGS) -DDEBUG
+	$(CC) $< -o $@ $(CFLAGS) $(DBFLAGS)
 
 $(TIMES_BIN): $(TIMES_SRC) Makefile
 	$(CC) $< -o $@ $(CFLAGS)
